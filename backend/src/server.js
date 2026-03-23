@@ -1,0 +1,131 @@
+require('dotenv').config();
+const express = require('express');
+const http = require('http');
+const { Server } = require('socket.io');
+const helmet = require('helmet');
+const cors = require('cors');
+const compression = require('compression');
+const morgan = require('morgan');
+const rateLimit = require('express-rate-limit');
+const swaggerUi = require('swagger-ui-express');
+
+const connectDB = require('./config/db');
+const swaggerSpec = require('./config/swagger');
+const errorHandler = require('./middleware/errorHandler');
+const logger = require('./utils/logger');
+
+// Route imports
+const authRoutes = require('./routes/auth.routes');
+const restaurantRoutes = require('./routes/restaurant.routes');
+const menuRoutes = require('./routes/menu.routes');
+const orderRoutes = require('./routes/order.routes');
+const routeRoutes = require('./routes/route.routes');
+const couponRoutes = require('./routes/coupon.routes');
+const supportRoutes = require('./routes/support.routes');
+const cmsRoutes = require('./routes/cms.routes');
+const adminRoutes = require('./routes/admin.routes');
+
+const app = express();
+const server = http.createServer(app);
+
+// ─── Socket.io Setup ──────────────────────────────────────────────────────────
+const io = new Server(server, {
+  cors: { origin: process.env.CLIENT_URL, methods: ['GET', 'POST'] },
+});
+
+io.on('connection', (socket) => {
+  logger.info(`Socket connected: ${socket.id}`);
+
+  // Join room based on role
+  socket.on('join_restaurant', (restaurantId) => {
+    socket.join(`restaurant_${restaurantId}`);
+    logger.info(`Socket ${socket.id} joined restaurant_${restaurantId}`);
+  });
+
+  socket.on('join_user', (userId) => {
+    socket.join(`user_${userId}`);
+  });
+
+  socket.on('disconnect', () => {
+    logger.info(`Socket disconnected: ${socket.id}`);
+  });
+});
+
+app.set('io', io);
+
+// ─── Security Middleware ──────────────────────────────────────────────────────
+app.use(helmet());
+app.use(cors({ origin: process.env.CLIENT_URL, credentials: true }));
+
+// Global rate limiter
+const limiter = rateLimit({
+  windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000,
+  max: parseInt(process.env.RATE_LIMIT_MAX) || 100,
+  message: { success: false, message: 'Too many requests. Please try again later.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+app.use('/api/', limiter);
+
+// Stricter limiter for OTP
+const otpLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  max: 5,
+  message: { success: false, message: 'Too many OTP requests.' },
+});
+app.use('/api/v1/auth/send-otp', otpLimiter);
+
+// ─── General Middleware ───────────────────────────────────────────────────────
+app.use(compression());
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true }));
+app.use(morgan('combined', { stream: { write: (msg) => logger.info(msg.trim()) } }));
+
+// Static files (uploads)
+app.use('/uploads', express.static('uploads'));
+
+// ─── API Routes ───────────────────────────────────────────────────────────────
+const API = '/api/v1';
+app.use(`${API}/auth`, authRoutes);
+app.use(`${API}/restaurants`, restaurantRoutes);
+app.use(`${API}/menu`, menuRoutes);
+app.use(`${API}/orders`, orderRoutes);
+app.use(`${API}/routes`, routeRoutes);
+app.use(`${API}/coupons`, couponRoutes);
+app.use(`${API}/support`, supportRoutes);
+app.use(`${API}/cms`, cmsRoutes);
+app.use(`${API}/admin`, adminRoutes);
+
+// ─── Swagger Docs ─────────────────────────────────────────────────────────────
+app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
+  customSiteTitle: 'Rodofood API Docs',
+}));
+
+// ─── Health Check ─────────────────────────────────────────────────────────────
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok', timestamp: new Date().toISOString(), env: process.env.NODE_ENV });
+});
+
+// ─── 404 Handler ─────────────────────────────────────────────────────────────
+app.use('*', (req, res) => {
+  res.status(404).json({ success: false, message: `Route ${req.originalUrl} not found` });
+});
+
+// ─── Error Handler ────────────────────────────────────────────────────────────
+app.use(errorHandler);
+
+// ─── Start Server ─────────────────────────────────────────────────────────────
+const PORT = process.env.PORT || 5000;
+
+const start = async () => {
+  await connectDB();
+  server.listen(PORT, () => {
+    logger.info(`🚀 Rodofood API running on port ${PORT}`);
+    logger.info(`📚 Swagger docs: http://localhost:${PORT}/api/docs`);
+    logger.info(`🌍 Environment: ${process.env.NODE_ENV}`);
+  });
+};
+
+start();
+
+module.exports = { app, server };
