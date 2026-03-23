@@ -19,10 +19,10 @@ export const useOrderById = (id: string) =>
       return res.data.data.order as Order;
     },
     enabled: !!id,
-    refetchInterval: (data) => {
-      // Poll every 10s if order is active
+    refetchInterval: (query) => {
       const activeStatuses = ['pending', 'confirmed', 'preparing'];
-      return data && activeStatuses.includes((data as Order).status) ? 10000 : false;
+      const order = query.state.data as Order | undefined;
+      return order && activeStatuses.includes(order.status) ? 10000 : false;
     },
   });
 
