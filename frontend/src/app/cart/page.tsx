@@ -273,8 +273,8 @@ export default function CartPage() {
                 {cart.items.map((item) => (
                   <div key={item.menuItem._id} className="flex items-center gap-4 px-5 py-4">
                     {/* Veg/non-veg dot */}
-                    <div className={`w-4 h-4 rounded-sm border-2 flex items-center justify-center flex-shrink-0 ${item.menuItem.isVeg ? 'border-emerald-600' : 'border-red-600'}`}>
-                      <div className={`w-2 h-2 rounded-full ${item.menuItem.isVeg ? 'bg-emerald-600' : 'bg-red-600'}`} />
+                    <div className={`w-4 h-4 rounded-sm border-2 flex items-center justify-center flex-shrink-0 ${item.menuItem.foodType === 'veg' ? 'border-emerald-600' : 'border-red-600'}`}>
+                      <div className={`w-2 h-2 rounded-full ${item.menuItem.foodType === 'veg' ? 'bg-emerald-600' : 'bg-red-600'}`} />
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="font-bold text-gray-900 text-sm truncate">{item.menuItem.name}</p>
@@ -287,7 +287,7 @@ export default function CartPage() {
                         <Minus className="w-3 h-3 text-orange-600" />
                       </button>
                       <span className="w-6 text-center font-extrabold text-gray-900 text-sm">{item.quantity}</span>
-                      <button onClick={() => cart.addItem(item.menuItem, item.restaurantId, item.restaurantName)}
+                      <button onClick={() => cart.addItem(item.menuItem, cart.restaurantId!, cart.restaurantName!)}
                         className="w-7 h-7 rounded-lg bg-orange-500 flex items-center justify-center hover:bg-orange-600 transition-colors">
                         <Plus className="w-3 h-3 text-white" />
                       </button>

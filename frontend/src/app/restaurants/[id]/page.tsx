@@ -1,9 +1,11 @@
 'use client';
 import { useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowLeft, Star, Clock, MapPin, Phone, ChevronRight, Info, Utensils } from 'lucide-react';
+import { ArrowLeft, Star, Clock, MapPin, Phone, ChevronRight, Info, Utensils, Loader2 } from 'lucide-react';
 import { useRestaurant, useMenu } from '@/hooks/useRestaurants';
 import { resolveImage } from '@/lib/config';
+import MenuItemCard from '@/components/customer/MenuItemCard';
+import CartButton from '@/components/customer/CartButton';
 
 export default function RestaurantPage() {
   const { id } = useParams<{ id: string }>();
@@ -14,9 +16,7 @@ export default function RestaurantPage() {
 
   const categories = menu ? Object.keys(menu) : [];
   const currentCat = activeCategory || categories[0] || '';
-  const coverSrc = restaurant?.coverImage
-    ? (restaurant.coverImage.startsWith('http') ? restaurant.coverImage : `${BASE}${restaurant.coverImage}`)
-    : null;
+  const coverSrc = resolveImage(restaurant?.coverImage);
 
   if (rLoading) return (
     <div className="flex justify-center items-center min-h-screen bg-white">
