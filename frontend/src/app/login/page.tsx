@@ -10,7 +10,7 @@ const FEATURES = [
 ];
 
 const TEST_USERS = [
-  { role: 'Admin', color: 'bg-violet-100 text-violet-700', ph: '9999999999' },
+  // { role: 'Admin', color: 'bg-violet-100 text-violet-700', ph: '9999999999' },
   { role: 'Customer', color: 'bg-emerald-100 text-emerald-700', ph: '9876543210' },
 ];
 
