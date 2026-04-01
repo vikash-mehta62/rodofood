@@ -76,3 +76,56 @@ exports.deleteCoupon = async (req, res, next) => {
     next(error);
   }
 };
+
+// ─── Restaurant Owner Coupon Management ──────────────────────────────────────
+
+const Restaurant = require('../models/Restaurant');
+
+const getOwnerRestaurant = async (userId) => Restaurant.findOne({ owner: userId });
+
+exports.getMyCoupons = async (req, res, next) => {
+  try {
+    const restaurant = await getOwnerRestaurant(req.user._id);
+    if (!restaurant) return errorResponse(res, 'Restaurant not found', 404);
+    const coupons = await Coupon.find({ restaurant: restaurant._id }).sort({ createdAt: -1 });
+    return successResponse(res, { coupons });
+  } catch (error) { next(error); }
+};
+
+exports.createMyCoupon = async (req, res, next) => {
+  try {
+    const restaurant = await getOwnerRestaurant(req.user._id);
+    if (!restaurant) return errorResponse(res, 'Restaurant not found', 404);
+    // Restaurant coupons are always scoped to their restaurant only
+    const coupon = await Coupon.create({
+      ...req.body,
+      applicableTo: 'restaurant',
+      restaurant: restaurant._id,
+      createdBy: req.user._id,
+    });
+    return successResponse(res, { coupon }, 'Coupon created', 201);
+  } catch (error) { next(error); }
+};
+
+exports.updateMyCoupon = async (req, res, next) => {
+  try {
+    const restaurant = await getOwnerRestaurant(req.user._id);
+    if (!restaurant) return errorResponse(res, 'Restaurant not found', 404);
+    const coupon = await Coupon.findOneAndUpdate(
+      { _id: req.params.id, restaurant: restaurant._id },
+      { ...req.body, applicableTo: 'restaurant', restaurant: restaurant._id },
+      { new: true }
+    );
+    if (!coupon) return errorResponse(res, 'Coupon not found', 404);
+    return successResponse(res, { coupon }, 'Coupon updated');
+  } catch (error) { next(error); }
+};
+
+exports.deleteMyCoupon = async (req, res, next) => {
+  try {
+    const restaurant = await getOwnerRestaurant(req.user._id);
+    if (!restaurant) return errorResponse(res, 'Restaurant not found', 404);
+    await Coupon.findOneAndDelete({ _id: req.params.id, restaurant: restaurant._id });
+    return successResponse(res, {}, 'Coupon deleted');
+  } catch (error) { next(error); }
+};

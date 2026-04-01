@@ -35,12 +35,36 @@ const getOwnerRestaurant = async (userId) => {
   return Restaurant.findOne({ owner: userId });
 };
 
+// Owner gets ALL items (available + unavailable) for management
+exports.getOwnerMenu = async (req, res, next) => {
+  try {
+    const restaurant = await getOwnerRestaurant(req.user._id);
+    if (!restaurant) return errorResponse(res, 'Restaurant not found', 404);
+
+    const items = await MenuItem.find({ restaurant: restaurant._id })
+      .sort({ category: 1, sortOrder: 1 });
+
+    const grouped = items.reduce((acc, item) => {
+      if (!acc[item.category]) acc[item.category] = [];
+      acc[item.category].push(item);
+      return acc;
+    }, {});
+
+    return successResponse(res, { menu: grouped });
+  } catch (error) {
+    next(error);
+  }
+};
+
 exports.addMenuItem = async (req, res, next) => {
   try {
     const restaurant = await getOwnerRestaurant(req.user._id);
     if (!restaurant) return errorResponse(res, 'Restaurant not found', 404);
 
-    const item = await MenuItem.create({ ...req.body, restaurant: restaurant._id });
+    const data = { ...req.body, restaurant: restaurant._id };
+    if (req.file) data.image = req.file.path; // Cloudinary returns full URL in path
+
+    const item = await MenuItem.create(data);
     return successResponse(res, { item }, 'Menu item added', 201);
   } catch (error) {
     next(error);
@@ -52,9 +76,12 @@ exports.updateMenuItem = async (req, res, next) => {
     const restaurant = await getOwnerRestaurant(req.user._id);
     if (!restaurant) return errorResponse(res, 'Restaurant not found', 404);
 
+    const updateData = { ...req.body };
+    if (req.file) updateData.image = req.file.path; // Cloudinary full URL
+
     const item = await MenuItem.findOneAndUpdate(
       { _id: req.params.id, restaurant: restaurant._id },
-      req.body,
+      updateData,
       { new: true, runValidators: true }
     );
     if (!item) return errorResponse(res, 'Menu item not found', 404);

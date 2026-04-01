@@ -78,8 +78,19 @@ exports.getRestaurantsByRoute = async (req, res, next) => {
       return { ...r, distanceKm: distanceKm ? Math.round(distanceKm * 10) / 10 : null, position };
     });
 
-    return successResponse(res, { route: { name: route.name, slug: route.slug }, restaurants: enriched });
-  } catch (error) {
+    // Sort: if user location provided → sort by distance (nearest first, ahead before passed)
+    // Otherwise sort by routeWaypointOrder
+    const sorted = userLat && userLng
+      ? enriched.sort((a, b) => {
+          // Ahead restaurants first
+          if (a.position === 'ahead' && b.position === 'passed') return -1;
+          if (a.position === 'passed' && b.position === 'ahead') return 1;
+          // Then by distance
+          return (a.distanceKm ?? 999) - (b.distanceKm ?? 999);
+        })
+      : enriched.sort((a, b) => (a.routeWaypointOrder ?? 0) - (b.routeWaypointOrder ?? 0));
+
+    return successResponse(res, { route: { name: route.name, slug: route.slug }, restaurants: sorted });  } catch (error) {
     next(error);
   }
 };
@@ -110,6 +121,49 @@ exports.getMyRestaurant = async (req, res, next) => {
     const restaurant = await Restaurant.findOne({ owner: req.user._id });
     if (!restaurant) return errorResponse(res, 'Restaurant not found', 404);
     return successResponse(res, { restaurant });
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.updateMyRestaurant = async (req, res, next) => {
+  try {
+    const restaurant = await Restaurant.findOne({ owner: req.user._id });
+    if (!restaurant) return errorResponse(res, 'Restaurant not found', 404);
+
+    const updates = { ...req.body };
+
+    // Handle nested address/location from flat fields
+    if (req.body['address.street']) updates.address = { ...restaurant.address, street: req.body['address.street'] };
+    if (req.body['address.city']) updates['address.city'] = req.body['address.city'];
+    if (req.body['address.state']) updates['address.state'] = req.body['address.state'];
+    if (req.body['address.pincode']) updates['address.pincode'] = req.body['address.pincode'];
+
+    // Handle location coordinates
+    if (req.body.latitude && req.body.longitude) {
+      updates.location = {
+        type: 'Point',
+        coordinates: [parseFloat(req.body.longitude), parseFloat(req.body.latitude)],
+      };
+      delete updates.latitude;
+      delete updates.longitude;
+    }
+
+    // Handle cuisines array
+    if (req.body.cuisines && typeof req.body.cuisines === 'string') {
+      updates.cuisines = req.body.cuisines.split(',').map(c => c.trim()).filter(Boolean);
+    }
+
+    // Handle uploaded images (Cloudinary returns full URL in req.file.path)
+    if (req.files?.coverImage?.[0]) {
+      updates.coverImage = req.files.coverImage[0].path;
+    }
+    if (req.files?.images?.length) {
+      updates.images = req.files.images.map(f => f.path);
+    }
+
+    const updated = await Restaurant.findByIdAndUpdate(restaurant._id, updates, { new: true, runValidators: true });
+    return successResponse(res, { restaurant: updated }, 'Restaurant updated');
   } catch (error) {
     next(error);
   }

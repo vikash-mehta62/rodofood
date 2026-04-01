@@ -11,6 +11,23 @@ interface AuthStore {
   logout: () => void;
 }
 
+// Sync auth state to cookie so Next.js middleware can read it
+const syncCookie = (state: { user: User | null; token: string | null; isAuthenticated: boolean }) => {
+  if (typeof document === 'undefined') return;
+  if (state.isAuthenticated && state.user) {
+    // Full auth state cookie (for role-based routing)
+    const val = encodeURIComponent(JSON.stringify({ state: { user: state.user, token: state.token, isAuthenticated: true } }));
+    document.cookie = `rf_auth=${val}; path=/; max-age=${7 * 24 * 3600}; SameSite=Lax`;
+    // Simple token cookie (fallback for middleware)
+    if (state.token) {
+      document.cookie = `rf_token=${state.token}; path=/; max-age=${7 * 24 * 3600}; SameSite=Lax`;
+    }
+  } else {
+    document.cookie = 'rf_auth=; path=/; max-age=0; SameSite=Lax';
+    document.cookie = 'rf_token=; path=/; max-age=0; SameSite=Lax';
+  }
+};
+
 export const useAuthStore = create<AuthStore>()(
   persist(
     (set) => ({
@@ -22,24 +39,35 @@ export const useAuthStore = create<AuthStore>()(
         if (typeof window !== 'undefined') {
           localStorage.setItem('rf_token', token);
         }
-        set({ user, token, isAuthenticated: true });
+        const newState = { user, token, isAuthenticated: true };
+        set(newState);
+        syncCookie(newState);
       },
 
       updateUser: (updates) =>
-        set((state) => ({
-          user: state.user ? { ...state.user, ...updates } : null,
-        })),
+        set((state) => {
+          const newUser = state.user ? { ...state.user, ...updates } : null;
+          const newState = { user: newUser, token: state.token, isAuthenticated: state.isAuthenticated };
+          syncCookie(newState);
+          return { user: newUser };
+        }),
 
       logout: () => {
         if (typeof window !== 'undefined') {
           localStorage.removeItem('rf_token');
         }
-        set({ user: null, token: null, isAuthenticated: false });
+        const newState = { user: null, token: null, isAuthenticated: false };
+        set(newState);
+        syncCookie(newState);
       },
     }),
     {
       name: 'rf_auth',
       partialize: (state) => ({ user: state.user, token: state.token, isAuthenticated: state.isAuthenticated }),
+      onRehydrateStorage: () => (state) => {
+        // Sync cookie after rehydration from localStorage
+        if (state) syncCookie(state);
+      },
     }
   )
 );

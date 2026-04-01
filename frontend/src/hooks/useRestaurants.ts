@@ -24,7 +24,7 @@ export const useRestaurantsByRoute = (params: {
       const res = await api.get('/restaurants/by-route', { params });
       return res.data.data as { route: Route; restaurants: Restaurant[] };
     },
-    enabled: !!params.routeId && !!params.fromCity && !!params.toCity,
+    enabled: !!params.routeId,
   });
 
 export const useRestaurant = (id: string) =>
