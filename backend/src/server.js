@@ -10,7 +10,6 @@ const rateLimit = require('express-rate-limit');
 const swaggerUi = require('swagger-ui-express');
 
 const connectDB = require('./config/db');
-const swaggerSpec = require('./config/swagger');
 const errorHandler = require('./middleware/errorHandler');
 const logger = require('./utils/logger');
 
@@ -97,9 +96,25 @@ app.use(`${API}/cms`, cmsRoutes);
 app.use(`${API}/admin`, adminRoutes);
 
 // ─── Swagger Docs ─────────────────────────────────────────────────────────────
-app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
-  customSiteTitle: 'Rodofood API Docs',
-}));
+if (process.env.NODE_ENV !== 'production') {
+  const swaggerOutput = require('./swagger-output.json');
+
+  app.use(
+    '/api-docs',
+    swaggerUi.serve,
+    swaggerUi.setup(swaggerOutput, {
+      explorer: true,
+      swaggerOptions: {
+        persistAuthorization: true,   // keeps JWT across page refreshes
+        displayRequestDuration: true, // shows response time in UI
+        filter: true,                 // enables tag/endpoint search bar
+        tryItOutEnabled: true,        // "Try it out" open by default
+      },
+      customSiteTitle: 'Rodo API Docs',
+    })
+  );
+  console.log(`Swagger UI  → http://localhost:${process.env.PORT || 5000}/api-docs`);
+}
 
 // ─── Health Check ─────────────────────────────────────────────────────────────
 app.get('/health', (req, res) => {
