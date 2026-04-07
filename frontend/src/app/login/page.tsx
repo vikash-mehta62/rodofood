@@ -62,9 +62,7 @@ export default function LoginPage() {
 
         {/* Top logo */}
         <div className="relative z-10 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-orange-500 to-orange-400 flex items-center justify-center shadow-lg shadow-orange-500/30">
-            <span className="text-xl">🛣️</span>
-          </div>
+          <img src="/logo.jpeg" alt="Rodofood" className="w-8 h-8 rounded-lg object-cover" style={{ objectFit: 'cover' }} />
           <span className="font-extrabold text-xl text-white">Rodo<span className="text-orange-500">food</span></span>
         </div>
 
@@ -118,9 +116,7 @@ export default function LoginPage() {
           <div className="absolute inset-0 opacity-[0.04]"
             style={{ backgroundImage: 'linear-gradient(white 1px,transparent 1px),linear-gradient(90deg,white 1px,transparent 1px)', backgroundSize: '32px 32px' }} />
           <div className="relative z-10 flex items-center gap-3">
-            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-orange-500 to-orange-400 flex items-center justify-center shadow-lg shadow-orange-500/30">
-              <span className="text-2xl">🛣️</span>
-            </div>
+            <img src="/logo.jpeg" alt="Rodofood" className="w-8 h-8 rounded-lg object-cover" style={{ objectFit: 'cover' }} />
             <div>
               <h1 className="text-2xl font-extrabold text-white">Rodo<span className="text-orange-500">food</span></h1>
               <p className="text-gray-400 text-xs mt-0.5">Highway food, pre-ordered</p>

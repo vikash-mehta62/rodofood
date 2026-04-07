@@ -8,6 +8,7 @@ import {
   CheckCircle, Gift, Percent, ChevronRight, Play
 } from 'lucide-react';
 import { API_URL, BASE_URL, resolveImage } from '@/lib/config';
+import { translations, type Lang } from '@/lib/i18n';
 
 const API = API_URL;
 const BASE = BASE_URL;
@@ -197,6 +198,8 @@ export default function LandingPage() {
   const [activeStop, setActiveStop] = useState(0);
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
   const [countdown, setCountdown] = useState({ h: 5, m: 42, s: 17 });
+  const [lang, setLang] = useState<Lang>('en');
+  const t = translations[lang];
 
   useEffect(() => {
     const t = setInterval(() => {
@@ -238,22 +241,26 @@ export default function LandingPage() {
       <nav className="fixed top-8 left-0 right-0 z-[100] bg-white/95 backdrop-blur-xl border-b border-gray-100/80 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-orange-500 to-orange-400 flex items-center justify-center shadow-md shadow-orange-200">
-              <span className="text-base">🛣️</span>
+            <img src="/logo.jpeg" alt="Rodofood" className="w-8 h-8 rounded-lg object-cover" style={{ objectFit: 'cover' }} />
+            <div>
+              <span className="font-extrabold text-lg text-gray-900">Rodo<span className="text-orange-500">food</span></span>
+              <p className="text-[10px] text-gray-400 hidden lg:block">{t.tagline}</p>
             </div>
-            <span className="font-extrabold text-lg text-gray-900">Rodo<span className="text-orange-500">food</span></span>
           </div>
           <div className="hidden md:flex items-center gap-7 text-sm font-medium text-gray-500">
-            {[['#restaurants','Restaurants'],['#offers','Offers'],['#how','How it Works'],['#route','Route']].map(([href, label]) => (
+            {([[`#restaurants`, t.restaurants],[`#offers`, t.offers],[`#how`, t.howItWorks],[`#route`, t.route]] as [string,string][]).map(([href, label]) => (
               <a key={href} href={href} className="hover:text-orange-500 transition-colors">{label}</a>
             ))}
           </div>
           <div className="flex items-center gap-3">
             <NavLocation />
-            <Link href="/login" className="hidden sm:block text-sm font-semibold text-gray-600 hover:text-orange-500 transition-colors">Login</Link>
+            <button onClick={() => setLang(l => l === 'en' ? 'hi' : 'en')} className="hidden md:flex items-center gap-1 text-xs font-bold text-gray-500 hover:text-orange-500 border border-gray-200 hover:border-orange-300 px-3 py-1.5 rounded-lg transition-all">
+              {lang === 'en' ? 'हिं' : 'EN'}
+            </button>
+            <Link href="/login" className="hidden sm:block text-sm font-semibold text-gray-600 hover:text-orange-500 transition-colors">{t.login}</Link>
             <Link href="/login">
               <button className="text-white text-sm font-bold px-5 py-2 rounded-xl bg-gradient-to-r from-orange-500 to-orange-400 shadow-md shadow-orange-200 hover:shadow-orange-300 hover:scale-105 active:scale-95 transition-all">
-                Get Started →
+                {t.getStarted}
               </button>
             </Link>
           </div>
@@ -281,32 +288,31 @@ export default function LandingPage() {
                 </span>
               </div>
               <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-white leading-[1.08] tracking-tight mb-6">
-                Never go hungry<br />
+                {t.heroTitle1}<br />
                 <span className="bg-gradient-to-r from-orange-400 via-amber-400 to-orange-300 bg-clip-text text-transparent">
-                  on the highway!
+                  {t.heroTitle2}
                 </span>
               </h1>
               <p className="text-gray-400 text-base sm:text-lg leading-relaxed mb-8 max-w-lg mx-auto lg:mx-0">
-                Pre-order your meal while you drive. By the time you arrive,
-                your hot fresh food is already on the table.{' '}
-                <span className="text-orange-400 font-semibold">No more long waits at highway restaurants.</span>
+                {t.heroSubtitle}{' '}
+                <span className="text-orange-400 font-semibold">{t.noWaits}</span>
               </p>
               <div className="inline-flex items-center gap-3 rounded-xl px-4 py-3 mb-8 border border-emerald-500/30 bg-emerald-500/10">
                 <span className="text-xl">🎉</span>
                 <div className="text-left">
-                  <p className="text-emerald-300 font-bold text-sm">₹50 off on your first order!</p>
+                  <p className="text-emerald-300 font-bold text-sm">{t.firstOffer}</p>
                   <p className="text-emerald-400/70 text-xs">Code: <span className="font-bold text-emerald-300">FIRST50</span></p>
                 </div>
               </div>
               <div className="flex flex-col sm:flex-row gap-3 justify-center lg:justify-start mb-10">
                 <Link href="/login">
                   <button className="w-full sm:w-auto inline-flex items-center justify-center gap-2 text-white font-bold px-7 py-3.5 rounded-xl text-sm bg-gradient-to-r from-orange-500 to-orange-400 shadow-xl shadow-orange-500/30 hover:shadow-orange-500/50 hover:scale-105 active:scale-95 transition-all">
-                    <Utensils className="w-4 h-4" /> Order Now <ArrowRight className="w-4 h-4" />
+                    <Utensils className="w-4 h-4" /> {t.orderNow} <ArrowRight className="w-4 h-4" />
                   </button>
                 </Link>
                 <a href="#how">
                   <button className="w-full sm:w-auto inline-flex items-center justify-center gap-2 font-semibold px-7 py-3.5 rounded-xl text-sm border border-white/10 text-white bg-white/5 hover:bg-white/10 transition-all">
-                    <Play className="w-4 h-4 text-orange-400" /> How it Works
+                    <Play className="w-4 h-4 text-orange-400" /> {t.howItWorks}
                   </button>
                 </a>
               </div>
@@ -437,18 +443,18 @@ export default function LandingPage() {
             <div className="hidden lg:block absolute top-10 left-[12.5%] right-[12.5%] h-px bg-gradient-to-r from-orange-200 via-orange-400 to-orange-200" />
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-5 lg:gap-6">
               {[
-                { num: '01', title: 'Set Your Route', desc: 'Select your highway route from the available corridors on the app.', emoji: '🗺️', color: 'bg-orange-500', ring: 'ring-orange-200' },
-                { num: '02', title: 'Pick a Restaurant', desc: 'Browse top-rated restaurants along your route and explore menus.', emoji: '🍛', color: 'bg-amber-500', ring: 'ring-amber-200' },
-                { num: '03', title: 'Pre-Order Meal', desc: 'Place your order and the kitchen starts cooking based on your ETA.', emoji: '📱', color: 'bg-emerald-500', ring: 'ring-emerald-200' },
-                { num: '04', title: 'Arrive & Eat!', desc: 'Pull up to the restaurant — your fresh hot meal is already waiting.', emoji: '🎉', color: 'bg-blue-500', ring: 'ring-blue-200' },
+                { num: '01', emoji: '🗺️', color: 'bg-orange-500', ring: 'ring-orange-200' },
+                { num: '02', emoji: '🍛', color: 'bg-amber-500', ring: 'ring-amber-200' },
+                { num: '03', emoji: '📱', color: 'bg-emerald-500', ring: 'ring-emerald-200' },
+                { num: '04', emoji: '🎉', color: 'bg-blue-500', ring: 'ring-blue-200' },
               ].map((step, i) => (
                 <div key={i} className="relative flex flex-col items-center text-center group">
                   <div className={`relative w-20 h-20 ${step.color} rounded-2xl flex items-center justify-center text-3xl mb-5 shadow-lg ring-4 ${step.ring} group-hover:scale-110 transition-transform duration-300`}>
                     {step.emoji}
                     <span className="absolute -top-2 -right-2 w-6 h-6 bg-white border-2 border-gray-100 rounded-full flex items-center justify-center text-[10px] font-extrabold text-gray-700 shadow-sm">{step.num}</span>
                   </div>
-                  <h3 className="text-sm font-extrabold text-gray-900 mb-2">{step.title}</h3>
-                  <p className="text-xs text-gray-500 leading-relaxed">{step.desc}</p>
+                  <h3 className="text-sm font-extrabold text-gray-900 mb-2">{t.steps[i]}</h3>
+                  <p className="text-xs text-gray-500 leading-relaxed">{t.stepDescs[i]}</p>
                 </div>
               ))}
             </div>
@@ -461,7 +467,7 @@ export default function LandingPage() {
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-14">
             <span className="inline-flex items-center gap-1.5 text-xs font-bold text-orange-600 uppercase tracking-widest bg-orange-100 px-3 py-1 rounded-full mb-4">Features</span>
-            <h2 className="text-2xl sm:text-3xl font-extrabold text-gray-900 mb-3">Why Choose <span className="text-orange-500">Rodofood?</span></h2>
+            <h2 className="text-2xl sm:text-3xl font-extrabold text-gray-900 mb-3">{t.whyChoose.replace('Rodofood', '')} <span className="text-orange-500">Rodofood?</span></h2>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             <div className="lg:col-span-2 bg-[#0C0F1A] rounded-2xl p-7 flex flex-col sm:flex-row gap-6 items-start border border-white/5 hover:border-orange-500/30 transition-colors group">
@@ -532,7 +538,7 @@ export default function LandingPage() {
             <span className="inline-flex items-center gap-1.5 text-xs font-bold text-orange-600 uppercase tracking-widest bg-orange-100 px-3 py-1 rounded-full mb-4">
               <Percent className="w-3 h-3" /> Special Offers
             </span>
-            <h2 className="text-2xl sm:text-3xl font-extrabold text-gray-900 mb-3">Today&apos;s Best <span className="text-orange-500">Deals 🎊</span></h2>
+            <h2 className="text-2xl sm:text-3xl font-extrabold text-gray-900 mb-3"><span className="text-orange-500">{t.todaysDeals}</span></h2>
             <p className="text-gray-500 text-sm max-w-sm mx-auto">Copy a code, place your order, save money.</p>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
@@ -569,20 +575,6 @@ export default function LandingPage() {
                 </div>
               </div>
             ))}
-          </div>
-          <div className="mt-6 rounded-2xl p-5 flex flex-col sm:flex-row items-center justify-between gap-4 bg-orange-50 border border-orange-100">
-            <div className="flex items-center gap-4">
-              <div className="w-11 h-11 bg-orange-500 rounded-xl flex items-center justify-center text-xl flex-shrink-0 shadow-md shadow-orange-200">🎁</div>
-              <div>
-                <p className="font-extrabold text-gray-900 text-sm">Refer a Friend — Get ₹100 Cashback!</p>
-                <p className="text-gray-500 text-xs">Invite a friend and you both get ₹100 credited. Win-win!</p>
-              </div>
-            </div>
-            <Link href="/login">
-              <button className="flex-shrink-0 text-white font-bold px-5 py-2.5 rounded-xl text-sm bg-gradient-to-r from-orange-500 to-orange-400 hover:scale-105 transition-all shadow-md shadow-orange-200">
-                Refer Now →
-              </button>
-            </Link>
           </div>
         </div>
       </section>
@@ -656,7 +648,7 @@ export default function LandingPage() {
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-14">
             <span className="inline-flex items-center gap-1.5 text-xs font-bold text-orange-600 uppercase tracking-widest bg-orange-100 px-3 py-1 rounded-full mb-4">Reviews</span>
-            <h2 className="text-2xl sm:text-3xl font-extrabold text-gray-900 mb-3">What Travellers Say 🗣️</h2>
+            <h2 className="text-2xl sm:text-3xl font-extrabold text-gray-900 mb-3">{t.reviewsTitle}</h2>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
             {TESTIMONIALS.map((t, i) => (
@@ -740,18 +732,17 @@ export default function LandingPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-10 mb-12">
             <div className="sm:col-span-2 lg:col-span-1">
               <div className="flex items-center gap-2.5 mb-4">
-                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-orange-500 to-orange-400 flex items-center justify-center shadow-md shadow-orange-500/30">
-                  <span className="text-base">🛣️</span>
-                </div>
+                <img src="/logo.jpeg" alt="Rodofood" className="w-8 h-8 rounded-lg object-cover" style={{ objectFit: 'cover' }} />
                 <span className="font-extrabold text-lg text-white">Rodo<span className="text-orange-500">food</span></span>
               </div>
+              <span className="inline-block text-xs font-bold text-orange-500 bg-orange-50 border border-orange-200 px-3 py-1 rounded-full mb-3">🇮🇳 India&apos;s First Highway Food Network</span>
               <p className="text-sm text-gray-500 leading-relaxed max-w-xs">Great food on the highway, every time. Pre-order your meal and never wait again.</p>
             </div>
             <div>
               <p className="font-bold text-white mb-4 text-xs uppercase tracking-wider">Platform</p>
               <div className="space-y-2.5">
-                {['Customer App', 'Restaurant Partner', 'Admin Panel'].map(l => (
-                  <Link key={l} href="/login" className="block text-sm text-gray-500 hover:text-orange-400 transition-colors">{l}</Link>
+                {['Customer App', t.restaurantPartner, 'Admin Panel'].map(l => (
+                  <a key={l} href="#" className="block text-sm text-gray-500 hover:text-orange-400 transition-colors">{l}</a>
                 ))}
               </div>
             </div>
@@ -766,14 +757,21 @@ export default function LandingPage() {
             <div>
               <p className="font-bold text-white mb-4 text-xs uppercase tracking-wider">Company</p>
               <div className="space-y-2.5">
-                {['About Us', 'Contact', 'Privacy Policy'].map(l => (
+                {['About Us', 'Contact', t.privacyPolicy, t.termsConditions, t.refundPolicy].map(l => (
                   <a key={l} href="#" className="block text-sm text-gray-500 hover:text-orange-400 transition-colors">{l}</a>
                 ))}
               </div>
             </div>
           </div>
           <div className="border-t border-gray-800 pt-8 flex flex-col sm:flex-row justify-between items-center gap-3">
-            <p className="text-xs text-gray-600">© 2026 Rodofood. Made with ❤️ for Indian Highways.</p>
+            <div>
+              <p className="text-xs text-gray-600">© 2026 Rodofood · India&apos;s First Highway Food Network</p>
+              <div className="flex flex-wrap gap-4 justify-center sm:justify-start mt-3">
+                {[t.privacyPolicy, t.termsConditions, t.refundPolicy].map(l => (
+                  <a key={l} href="#" className="text-xs text-gray-600 hover:text-orange-400 transition-colors">{l}</a>
+                ))}
+              </div>
+            </div>
             <div className="flex items-center gap-2 text-xs text-gray-600">
               <Navigation className="w-3 h-3 text-orange-500" />
               <span>{routeLabel}</span>
