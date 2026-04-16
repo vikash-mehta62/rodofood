@@ -32,10 +32,13 @@ export default function ProfilePage() {
   const totalSpent = orders?.filter(o => o.status === 'completed').reduce((s, o) => s + o.totalAmount, 0) ?? 0;
 
   const MENU = [
-    { icon: MessageCircle, label: 'WhatsApp Support', sub: 'Chat with us anytime', action: () => window.open('https://wa.me/919999999999'), color: 'text-emerald-600 bg-emerald-50' },
-    { icon: HelpCircle,    label: 'Help & FAQ',       sub: 'Common questions answered', action: () => window.open('https://wa.me/919999999999'), color: 'text-blue-600 bg-blue-50' },
-    { icon: FileText,      label: 'Terms & Conditions', sub: 'Our terms of service', action: () => {}, color: 'text-gray-500 bg-gray-100' },
-    { icon: FileText,      label: 'Privacy Policy',   sub: 'How we use your data', action: () => {}, color: 'text-gray-500 bg-gray-100' },
+    { icon: MessageCircle, label: 'WhatsApp Support', sub: 'Chat with us anytime',    href: null, action: () => window.open('https://wa.me/919999999999'), color: 'text-emerald-600 bg-emerald-50' },
+    { icon: HelpCircle,    label: 'Help & FAQ',       sub: 'Common questions answered', href: null, action: () => window.open('https://wa.me/919999999999'), color: 'text-blue-600 bg-blue-50' },
+    { icon: FileText,      label: 'About Us',         sub: 'Our story & mission',      href: '/pages/about',   action: null, color: 'text-gray-500 bg-gray-100' },
+    { icon: FileText,      label: 'Terms & Conditions', sub: 'Our terms of service',   href: '/pages/terms',   action: null, color: 'text-gray-500 bg-gray-100' },
+    { icon: FileText,      label: 'Privacy Policy',   sub: 'How we use your data',     href: '/pages/privacy', action: null, color: 'text-gray-500 bg-gray-100' },
+    { icon: FileText,      label: 'Refund Policy',    sub: 'Cancellation & refunds',   href: '/pages/refund',  action: null, color: 'text-gray-500 bg-gray-100' },
+    { icon: FileText,      label: 'Contact Us',       sub: 'Get in touch with us',     href: '/pages/contact', action: null, color: 'text-gray-500 bg-gray-100' },
   ];
 
   return (
@@ -136,19 +139,23 @@ export default function ProfilePage() {
 
         {/* Menu */}
         <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
-          {MENU.map(({ icon: Icon, label, sub, action, color }, i) => (
-            <button key={label} onClick={action}
-              className={`w-full flex items-center gap-3 px-4 py-3.5 hover:bg-gray-50 transition-colors text-left ${i > 0 ? 'border-t border-gray-50' : ''}`}>
-              <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${color}`}>
-                <Icon className="w-4 h-4" />
+          {MENU.map(({ icon: Icon, label, sub, href, action, color }, i) => {
+            const inner = (
+              <div className={`w-full flex items-center gap-3 px-4 py-3.5 hover:bg-gray-50 transition-colors text-left ${i > 0 ? 'border-t border-gray-50' : ''}`}>
+                <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${color}`}>
+                  <Icon className="w-4 h-4" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-gray-800">{label}</p>
+                  <p className="text-xs text-gray-400">{sub}</p>
+                </div>
+                <ChevronRight className="w-4 h-4 text-gray-300 flex-shrink-0" />
               </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-gray-800">{label}</p>
-                <p className="text-xs text-gray-400">{sub}</p>
-              </div>
-              <ChevronRight className="w-4 h-4 text-gray-300 flex-shrink-0" />
-            </button>
-          ))}
+            );
+            return href
+              ? <Link key={label} href={href}>{inner}</Link>
+              : <button key={label} onClick={action ?? undefined} className="w-full">{inner}</button>;
+          })}
         </div>
 
         {/* App version */}
