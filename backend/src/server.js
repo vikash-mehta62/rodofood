@@ -99,23 +99,26 @@ app.use(`${API}/restaurant-auth`, restaurantAuthRoutes);
 
 // ─── Swagger Docs ─────────────────────────────────────────────────────────────
 if (process.env.NODE_ENV !== 'production') {
-  const swaggerOutput = require('./swagger-output.json');
-
-  app.use(
-    '/api-docs',
-    swaggerUi.serve,
-    swaggerUi.setup(swaggerOutput, {
-      explorer: true,
-      swaggerOptions: {
-        persistAuthorization: true,   // keeps JWT across page refreshes
-        displayRequestDuration: true, // shows response time in UI
-        filter: true,                 // enables tag/endpoint search bar
-        tryItOutEnabled: true,        // "Try it out" open by default
-      },
-      customSiteTitle: 'Rodo API Docs',
-    })
-  );
-  console.log(`Swagger UI  → http://localhost:${process.env.PORT || 5000}/api-docs`);
+  try {
+    const swaggerOutput = require('./swagger-output.json');
+    app.use(
+      '/api-docs',
+      swaggerUi.serve,
+      swaggerUi.setup(swaggerOutput, {
+        explorer: true,
+        swaggerOptions: {
+          persistAuthorization: true,
+          displayRequestDuration: true,
+          filter: true,
+          tryItOutEnabled: true,
+        },
+        customSiteTitle: 'Rodo API Docs',
+      })
+    );
+    console.log(`Swagger UI  → http://localhost:${process.env.PORT || 5000}/api-docs`);
+  } catch (_) {
+    console.warn('swagger-output.json not found, skipping Swagger UI. Run `npm run swagger` to generate.');
+  }
 }
 
 // ─── Health Check ─────────────────────────────────────────────────────────────
