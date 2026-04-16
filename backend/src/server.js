@@ -23,6 +23,7 @@ const couponRoutes = require('./routes/coupon.routes');
 const supportRoutes = require('./routes/support.routes');
 const cmsRoutes = require('./routes/cms.routes');
 const adminRoutes = require('./routes/admin.routes');
+const restaurantAuthRoutes = require('./routes/restaurantAuth.routes');
 
 const app = express();
 const server = http.createServer(app);
@@ -94,6 +95,7 @@ app.use(`${API}/coupons`, couponRoutes);
 app.use(`${API}/support`, supportRoutes);
 app.use(`${API}/cms`, cmsRoutes);
 app.use(`${API}/admin`, adminRoutes);
+app.use(`${API}/restaurant-auth`, restaurantAuthRoutes);
 
 // ─── Swagger Docs ─────────────────────────────────────────────────────────────
 if (process.env.NODE_ENV !== 'production') {

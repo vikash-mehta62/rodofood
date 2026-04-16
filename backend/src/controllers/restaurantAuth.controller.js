@@ -7,20 +7,8 @@ const generateToken = (userId) =>
   jwt.sign({ id: userId }, process.env.JWT_SECRET, { expiresIn: process.env.JWT_EXPIRE });
 
 /**
- * @swagger
- * /auth/send-otp:
- *   post:
- *     summary: Send OTP to mobile number
- *     tags: [Auth]
- *     security: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               phone: { type: string, example: "9876543210" }
+ * Send OTP for restaurant registration
+ * Same as auth sendOtp but dedicated endpoint
  */
 exports.sendOtp = async (req, res, next) => {
   try {
@@ -28,7 +16,6 @@ exports.sendOtp = async (req, res, next) => {
 
     let user = await User.findOne({ phone });
 
-    // Rate limit: max 3 OTP requests per 10 min
     if (user && user.otpAttempts >= 3 && user.otpExpiry > new Date()) {
       return errorResponse(res, 'Too many OTP requests. Please wait 10 minutes.', 429);
     }
@@ -37,17 +24,18 @@ exports.sendOtp = async (req, res, next) => {
     const otpExpiry = new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000);
 
     if (!user) {
-      user = await User.create({ phone, otp, otpExpiry, otpAttempts: 1 });
+      user = await User.create({ phone, otp, otpExpiry, otpAttempts: 1, role: 'restaurant' });
     } else {
       user.otp = otp;
       user.otpExpiry = otpExpiry;
       user.otpAttempts = (user.otpAttempts || 0) + 1;
+      // Pre-set role to restaurant so it's ready
+      if (user.role === 'customer') user.role = 'restaurant';
       await user.save();
     }
 
     await sendOTP(phone, otp);
 
-    // In development, return OTP in response for testing
     const responseData = process.env.NODE_ENV === 'development'
       ? { phone, devOtp: otp }
       : { phone };
@@ -59,16 +47,11 @@ exports.sendOtp = async (req, res, next) => {
 };
 
 /**
- * @swagger
- * /auth/verify-otp:
- *   post:
- *     summary: Verify OTP and login/register
- *     tags: [Auth]
- *     security: []
+ * Verify OTP for restaurant — always sets role=restaurant
  */
 exports.verifyOtp = async (req, res, next) => {
   try {
-    const { phone, otp, role } = req.body;
+    const { phone, otp } = req.body;
 
     const user = await User.findOne({ phone });
     if (!user) return errorResponse(res, 'User not found. Please request OTP first.', 404);
@@ -81,32 +64,21 @@ exports.verifyOtp = async (req, res, next) => {
       return errorResponse(res, 'OTP has expired. Please request a new one.', 400);
     }
 
-    // Clear OTP fields
+    // Always set restaurant role
+    user.role = 'restaurant';
     user.otp = undefined;
     user.otpExpiry = undefined;
     user.otpAttempts = 0;
     user.lastLogin = new Date();
-
-    // Set role if provided and valid non-admin role
-    // For new users: set role directly
-    // For existing users: allow upgrade from customer → restaurant
-    const isNewUser = !user.name;
-    if (role && ['customer', 'restaurant'].includes(role)) {
-      if (isNewUser) {
-        user.role = role;
-      } else if (role === 'restaurant' && user.role === 'customer') {
-        user.role = 'restaurant';
-      }
-    }
-
     await user.save();
 
     const token = generateToken(user._id);
+    const isNewUser = !user.name;
 
     return successResponse(
       res,
       { token, user, isNewUser },
-      isNewUser ? 'Welcome to Rodofood! Please complete your profile.' : 'Login successful'
+      isNewUser ? 'Welcome! Please complete your restaurant profile.' : 'Login successful'
     );
   } catch (error) {
     next(error);
@@ -114,41 +86,20 @@ exports.verifyOtp = async (req, res, next) => {
 };
 
 /**
- * @swagger
- * /auth/profile:
- *   get:
- *     summary: Get current user profile
- *     tags: [Auth]
+ * Complete restaurant owner profile (name + email)
+ * Role is already set — just save name/email
  */
-exports.getProfile = async (req, res, next) => {
+exports.completeProfile = async (req, res, next) => {
   try {
-    return successResponse(res, { user: req.user });
-  } catch (error) {
-    next(error);
-  }
-};
+    const { name, email } = req.body;
 
-/**
- * @swagger
- * /auth/profile:
- *   put:
- *     summary: Update user profile
- *     tags: [Auth]
- */
-exports.updateProfile = async (req, res, next) => {
-  try {
-    const { name, email, role } = req.body;
-    const updates = { name, email };
-    // Allow role change only from customer → restaurant (not to admin)
-    if (role && ['customer', 'restaurant'].includes(role)) {
-      updates.role = role;
-    }
     const user = await User.findByIdAndUpdate(
       req.user._id,
-      updates,
+      { name, email, role: 'restaurant' }, // enforce restaurant role
       { new: true, runValidators: true }
     );
-    return successResponse(res, { user }, 'Profile updated successfully');
+
+    return successResponse(res, { user }, 'Restaurant profile completed');
   } catch (error) {
     next(error);
   }
