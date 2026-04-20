@@ -9,6 +9,7 @@ const { createOrderSchema, updateOrderStatusSchema } = require('../validators/or
 router.post('/', protect, authorize('customer'), validate(createOrderSchema), ctrl.createOrder);
 router.get('/my', protect, authorize('customer'), ctrl.getMyOrders);
 router.get('/my/:id', protect, authorize('customer'), ctrl.getOrderById);
+router.post('/my/:id/rate', protect, authorize('customer'), ctrl.rateOrder);
 
 // Restaurant owner — specific routes BEFORE parameterized ones
 router.get('/restaurant/earnings', protect, authorize('restaurant'), ctrl.getRestaurantEarnings);

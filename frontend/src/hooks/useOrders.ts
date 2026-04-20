@@ -34,6 +34,18 @@ export const usePlaceOrder = () => {
   });
 };
 
+export const useRateOrder = (orderId: string) => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ stars, comment }: { stars: number; comment?: string }) =>
+      api.post(`/orders/my/${orderId}/rate`, { stars, comment }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['order', orderId] });
+      qc.invalidateQueries({ queryKey: ['orders', 'my'] });
+    },
+  });
+};
+
 // Restaurant
 export const useRestaurantOrders = (params?: { status?: string; date?: string }) =>
   useQuery({

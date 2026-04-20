@@ -64,6 +64,12 @@ const orderSchema = new mongoose.Schema(
     tripRoute: { type: mongoose.Schema.Types.ObjectId, ref: 'Route' },
     // Rejection reason
     rejectionReason: { type: String },
+    // Rating (customer gives after completion)
+    rating: {
+      stars: { type: Number, min: 1, max: 5 },
+      comment: { type: String, maxlength: 300 },
+      ratedAt: { type: Date },
+    },
     // Admin manual order flag
     isManualOrder: { type: Boolean, default: false },
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },

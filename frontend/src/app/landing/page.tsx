@@ -757,8 +757,14 @@ export default function LandingPage() {
             <div>
               <p className="font-bold text-white mb-4 text-xs uppercase tracking-wider">Company</p>
               <div className="space-y-2.5">
-                {['About Us', 'Contact', t.privacyPolicy, t.termsConditions, t.refundPolicy].map(l => (
-                  <a key={l} href="#" className="block text-sm text-gray-500 hover:text-orange-400 transition-colors">{l}</a>
+                {([
+                  ['About Us',         '/pages/about'],
+                  ['Contact',          '/pages/contact'],
+                  [t.privacyPolicy,    '/pages/privacy'],
+                  [t.termsConditions,  '/pages/terms'],
+                  [t.refundPolicy,     '/pages/refund'],
+                ] as [string, string][]).map(([label, href]) => (
+                  <Link key={label} href={href} className="block text-sm text-gray-500 hover:text-orange-400 transition-colors">{label}</Link>
                 ))}
               </div>
             </div>
@@ -767,8 +773,12 @@ export default function LandingPage() {
             <div>
               <p className="text-xs text-gray-600">© 2026 Rodofood · India&apos;s First Highway Food Network</p>
               <div className="flex flex-wrap gap-4 justify-center sm:justify-start mt-3">
-                {[t.privacyPolicy, t.termsConditions, t.refundPolicy].map(l => (
-                  <a key={l} href="#" className="text-xs text-gray-600 hover:text-orange-400 transition-colors">{l}</a>
+                {([
+                  [t.privacyPolicy,   '/pages/privacy'],
+                  [t.termsConditions, '/pages/terms'],
+                  [t.refundPolicy,    '/pages/refund'],
+                ] as [string, string][]).map(([label, href]) => (
+                  <Link key={label} href={href} className="text-xs text-gray-600 hover:text-orange-400 transition-colors">{label}</Link>
                 ))}
               </div>
             </div>

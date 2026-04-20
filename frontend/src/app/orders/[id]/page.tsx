@@ -1,10 +1,11 @@
 'use client';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, MapPin, Phone, Clock, CheckCircle, Loader2, Navigation, Tag, ShieldCheck } from 'lucide-react';
-import { useOrderById } from '@/hooks/useOrders';
+import { ArrowLeft, MapPin, Phone, Clock, CheckCircle, Loader2, Navigation, Tag, ShieldCheck, Star } from 'lucide-react';
+import { useOrderById, useRateOrder } from '@/hooks/useOrders';
 import { formatCurrency } from '@/lib/utils';
 import type { Restaurant } from '@/types';
+import { useState } from 'react';
 
 const STEPS = [
   { key: 'pending',   label: 'Placed',    emoji: '📋' },
@@ -27,6 +28,18 @@ export default function OrderDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const { data: order, isLoading } = useOrderById(id);
+  const rateOrder = useRateOrder(id);
+
+  const [selectedStars, setSelectedStars] = useState(0);
+  const [hoveredStars, setHoveredStars] = useState(0);
+  const [comment, setComment] = useState('');
+  const [ratingDone, setRatingDone] = useState(false);
+
+  const handleRate = async () => {
+    if (!selectedStars) return;
+    await rateOrder.mutateAsync({ stars: selectedStars, comment });
+    setRatingDone(true);
+  };
 
   if (isLoading) return (
     <div className="flex justify-center items-center min-h-screen bg-[#F5F6FA]">
@@ -229,6 +242,80 @@ export default function OrderDetailPage() {
             {order.paymentStatus === 'paid' ? '✓ Paid' : 'Pending'}
           </span>
         </div>
+
+        {/* Rating section — only for completed orders */}
+        {isCompleted && (
+          <div className="bg-white rounded-2xl border border-gray-100 p-5">
+            {(order as any).rating?.stars || ratingDone ? (
+              /* Already rated */
+              <div className="text-center py-2">
+                <p className="text-2xl mb-2">🎉</p>
+                <p className="font-extrabold text-gray-900 text-sm mb-1">Thanks for your feedback!</p>
+                <div className="flex justify-center gap-1 mb-1">
+                  {[1,2,3,4,5].map(s => (
+                    <Star key={s} className={`w-5 h-5 ${s <= ((order as any).rating?.stars || selectedStars) ? 'fill-amber-400 text-amber-400' : 'text-gray-200'}`} />
+                  ))}
+                </div>
+                {(order as any).rating?.comment && (
+                  <p className="text-xs text-gray-500 italic mt-1">"{(order as any).rating.comment}"</p>
+                )}
+              </div>
+            ) : (
+              /* Rate now */
+              <>
+                <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-4">Rate your experience</p>
+                <p className="text-sm text-gray-600 mb-4">How was your food from <span className="font-bold text-gray-900">{restaurant?.name}</span>?</p>
+
+                {/* Stars */}
+                <div className="flex justify-center gap-2 mb-5">
+                  {[1,2,3,4,5].map(s => (
+                    <button key={s} type="button"
+                      onMouseEnter={() => setHoveredStars(s)}
+                      onMouseLeave={() => setHoveredStars(0)}
+                      onClick={() => setSelectedStars(s)}
+                      className="transition-transform hover:scale-125 active:scale-110">
+                      <Star className={`w-9 h-9 transition-colors ${
+                        s <= (hoveredStars || selectedStars)
+                          ? 'fill-amber-400 text-amber-400'
+                          : 'text-gray-200'
+                      }`} />
+                    </button>
+                  ))}
+                </div>
+
+                {/* Star label */}
+                {selectedStars > 0 && (
+                  <p className="text-center text-sm font-bold text-amber-600 mb-4">
+                    {['', 'Poor 😞', 'Fair 😐', 'Good 🙂', 'Great 😊', 'Excellent 🤩'][selectedStars]}
+                  </p>
+                )}
+
+                {/* Comment */}
+                <textarea
+                  placeholder="Share details about your experience (optional)"
+                  value={comment}
+                  onChange={e => setComment(e.target.value)}
+                  maxLength={300}
+                  rows={3}
+                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl text-sm outline-none focus:border-orange-400 transition-colors resize-none bg-gray-50 mb-4"
+                />
+
+                <button
+                  onClick={handleRate}
+                  disabled={!selectedStars || rateOrder.isPending}
+                  className="w-full h-12 text-white font-bold text-sm rounded-xl flex items-center justify-center gap-2 transition-all active:scale-[0.98] disabled:opacity-40 bg-gradient-to-r from-orange-500 to-orange-400 shadow-md shadow-orange-200 disabled:shadow-none disabled:bg-none disabled:bg-gray-300">
+                  {rateOrder.isPending ? <Loader2 className="w-5 h-5 animate-spin" /> : '⭐ Submit Rating'}
+                </button>
+
+                {rateOrder.isError && (
+                  <p className="text-red-500 text-xs text-center mt-2">
+                    {(rateOrder.error as any)?.response?.data?.message || 'Failed to submit. Try again.'}
+                  </p>
+                )}
+              </>
+            )}
+          </div>
+        )}
 
         {/* Reorder */}
         {isCompleted && (

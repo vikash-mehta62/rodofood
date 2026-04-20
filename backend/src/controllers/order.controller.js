@@ -233,6 +233,41 @@ exports.getRestaurantEarnings = async (req, res, next) => {
   }
 };
 
+// ─── Rating ───────────────────────────────────────────────────────────────────
+
+exports.rateOrder = async (req, res, next) => {
+  try {
+    const { stars, comment } = req.body;
+    if (!stars || stars < 1 || stars > 5) return errorResponse(res, 'Rating must be between 1 and 5', 400);
+
+    const order = await Order.findOne({ _id: req.params.id, customer: req.user._id });
+    if (!order) return errorResponse(res, 'Order not found', 404);
+    if (order.status !== 'completed') return errorResponse(res, 'You can only rate completed orders', 400);
+    if (order.rating?.stars) return errorResponse(res, 'You have already rated this order', 400);
+
+    order.rating = { stars, comment: comment?.trim() || '', ratedAt: new Date() };
+    await order.save();
+
+    // Recalculate restaurant rating
+    const allRatings = await Order.find({
+      restaurant: order.restaurant,
+      'rating.stars': { $exists: true },
+    }).select('rating.stars');
+
+    const total = allRatings.length;
+    const avg = allRatings.reduce((sum, o) => sum + o.rating.stars, 0) / total;
+
+    await Restaurant.findByIdAndUpdate(order.restaurant, {
+      rating: Math.round(avg * 10) / 10,
+      totalRatings: total,
+    });
+
+    return successResponse(res, { order }, 'Rating submitted successfully');
+  } catch (error) {
+    next(error);
+  }
+};
+
 // ─── Admin ────────────────────────────────────────────────────────────────────
 
 exports.getAllOrders = async (req, res, next) => {
