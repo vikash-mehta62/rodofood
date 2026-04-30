@@ -37,7 +37,7 @@ function getUser(request: NextRequest): { role?: string } | null {
   return null;
 }
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Skip static files and API routes

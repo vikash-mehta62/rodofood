@@ -169,7 +169,7 @@ export default function CartPage() {
               }}
               className="w-full h-11 px-4 border-2 border-emerald-300 rounded-xl text-sm font-bold text-gray-800 outline-none focus:border-emerald-500 bg-white transition-colors"
             />
-            {customTime && cart.etaMinutes > 0 && (
+            {customTime && (cart.etaMinutes ?? 0) > 0 && (
               <p className="text-[11px] text-emerald-600 font-semibold mt-1.5">
                 ✓ Arriving in ~{cart.etaMinutes} min
               </p>
