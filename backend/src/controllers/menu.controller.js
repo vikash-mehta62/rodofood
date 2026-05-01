@@ -11,12 +11,19 @@ const { successResponse, errorResponse } = require('../utils/apiResponse');
  */
 exports.getMenu = async (req, res, next) => {
   try {
+    // Check restaurant is active and portal enabled before showing menu
+    const restaurant = await Restaurant.findOne({
+      _id: req.params.restaurantId,
+      isActive: true,
+      portalEnabled: true,
+    }).select('_id');
+    if (!restaurant) return errorResponse(res, 'Restaurant not found', 404);
+
     const items = await MenuItem.find({
       restaurant: req.params.restaurantId,
       isAvailable: true,
     }).sort({ category: 1, sortOrder: 1 });
 
-    // Group by category
     const grouped = items.reduce((acc, item) => {
       if (!acc[item.category]) acc[item.category] = [];
       acc[item.category].push(item);

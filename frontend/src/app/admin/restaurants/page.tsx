@@ -15,11 +15,12 @@ const FOOD_CFG = {
   both:    { label: 'Veg & Non-Veg', cls: 'bg-yellow-50 text-yellow-700 border-yellow-200' },
 };
 
-function RestaurantDetailModal({ restaurant, onClose, onToggleActive, onToggleVerify }: {
+function RestaurantDetailModal({ restaurant, onClose, onToggleActive, onToggleVerify, onTogglePortal }: {
   restaurant: any;
   onClose: () => void;
   onToggleActive: () => void;
   onToggleVerify: () => void;
+  onTogglePortal: () => void;
 }) {
   const imgSrc = resolveImage(restaurant.coverImage);
 
@@ -77,6 +78,9 @@ function RestaurantDetailModal({ restaurant, onClose, onToggleActive, onToggleVe
             <span className={`text-[10px] font-black px-2.5 py-1 rounded-full border ${restaurant.isActive ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-600 border-red-200'}`}>
               {restaurant.isActive ? 'Active' : 'Inactive'}
             </span>
+            <span className={`text-[10px] font-black px-2.5 py-1 rounded-full border ${restaurant.portalEnabled !== false ? 'bg-violet-50 text-violet-700 border-violet-200' : 'bg-gray-100 text-gray-500 border-gray-200'}`}>
+              {restaurant.portalEnabled !== false ? '🔓 Portal On' : '🔒 Portal Off'}
+            </span>
           </div>
 
           {/* Stats row */}
@@ -130,10 +134,26 @@ function RestaurantDetailModal({ restaurant, onClose, onToggleActive, onToggleVe
                   <div className="w-7 h-7 bg-green-50 rounded-lg flex items-center justify-center flex-shrink-0">
                     <Phone className="w-3.5 h-3.5 text-green-600" />
                   </div>
-                  <a href={`tel:+91${restaurant.phone}`} className="text-xs font-bold text-slate-900 hover:text-orange-500">
-                    +91 {restaurant.phone}
-                  </a>
+                  <div>
+                    <p className="text-[10px] text-slate-400 font-semibold">Restaurant Phone</p>
+                    <a href={`tel:+91${restaurant.phone}`} className="text-xs font-bold text-slate-900 hover:text-orange-500">
+                      +91 {restaurant.phone}
+                    </a>
+                  </div>
                 </div>
+                {restaurant.owner?.phone && (
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-7 h-7 bg-violet-50 rounded-lg flex items-center justify-center flex-shrink-0">
+                      <Phone className="w-3.5 h-3.5 text-violet-600" />
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-slate-400 font-semibold">Owner Login Number</p>
+                      <a href={`tel:+91${restaurant.owner.phone}`} className="text-xs font-bold text-violet-700 hover:text-violet-500">
+                        +91 {restaurant.owner.phone}
+                      </a>
+                    </div>
+                  </div>
+                )}
                 {restaurant.email && (
                   <div className="flex items-center gap-2.5">
                     <div className="w-7 h-7 bg-blue-50 rounded-lg flex items-center justify-center flex-shrink-0">
@@ -207,6 +227,13 @@ function RestaurantDetailModal({ restaurant, onClose, onToggleActive, onToggleVe
               className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-black border-2 transition-all ${restaurant.isVerified ? 'border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100' : 'border-yellow-300 bg-yellow-50 text-yellow-700 hover:bg-yellow-100'}`}>
               {restaurant.isVerified ? <><CheckCircle className="w-3.5 h-3.5" /> Verified</> : <><XCircle className="w-3.5 h-3.5" /> Mark Verified</>}
             </button>
+            <button onClick={onTogglePortal}
+              className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-black border-2 transition-all ${restaurant.portalEnabled !== false ? 'border-violet-300 bg-violet-50 text-violet-700 hover:bg-violet-100' : 'border-gray-300 bg-gray-100 text-gray-500 hover:bg-gray-200'}`}>
+              {restaurant.portalEnabled !== false
+                ? <><ToggleRight className="w-3.5 h-3.5" /> Portal On</>
+                : <><ToggleLeft className="w-3.5 h-3.5" /> Portal Off</>
+              }
+            </button>
             <button onClick={onToggleActive}
               className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-black border-2 transition-all ${restaurant.isActive ? 'border-red-300 bg-red-50 text-red-600 hover:bg-red-100' : 'border-green-300 bg-green-50 text-green-700 hover:bg-green-100'}`}>
               {restaurant.isActive
@@ -255,6 +282,17 @@ export default function AdminRestaurantsPage() {
     onSuccess: (_, vars) => {
       qc.invalidateQueries({ queryKey: ['admin-restaurants'] });
       if (selected?._id === vars.id) setSelected((p: any) => ({ ...p, isVerified: !p.isVerified }));
+    },
+  });
+
+  const togglePortalMut = useMutation({
+    mutationFn: ({ id }: { id: string; portalEnabled: boolean }) =>
+      api.patch(`/restaurants/${id}/toggle-portal`),
+    onSuccess: (res, vars) => {
+      qc.invalidateQueries({ queryKey: ['admin-restaurants'] });
+      if (selected?._id === vars.id) {
+        setSelected((p: any) => ({ ...p, portalEnabled: res.data.data.portalEnabled }));
+      }
     },
   });
 
@@ -350,6 +388,12 @@ export default function AdminRestaurantsPage() {
                     className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black border transition-all ${r.isVerified ? 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100' : 'bg-yellow-50 text-yellow-700 border-yellow-200 hover:bg-yellow-100'}`}>
                     {r.isVerified ? <><CheckCircle className="w-3.5 h-3.5" /> Verified</> : <><XCircle className="w-3.5 h-3.5" /> Verify</>}
                   </button>
+                  <button
+                    onClick={() => togglePortalMut.mutate({ id: r._id, portalEnabled: r.portalEnabled !== false })}
+                    disabled={togglePortalMut.isPending}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black border transition-all ${r.portalEnabled !== false ? 'bg-violet-50 text-violet-700 border-violet-200 hover:bg-violet-100' : 'bg-gray-100 text-gray-500 border-gray-200 hover:bg-gray-200'}`}>
+                    {r.portalEnabled !== false ? <><ToggleRight className="w-3.5 h-3.5" /> Portal On</> : <><ToggleLeft className="w-3.5 h-3.5" /> Portal Off</>}
+                  </button>
                   <div className="flex-1" />
                   <button
                     onClick={() => setSelected(r)}
@@ -380,6 +424,7 @@ export default function AdminRestaurantsPage() {
           onClose={() => setSelected(null)}
           onToggleActive={() => toggleActiveMut.mutate({ id: selected._id, isActive: selected.isActive })}
           onToggleVerify={() => toggleVerifyMut.mutate({ id: selected._id, isVerified: selected.isVerified })}
+          onTogglePortal={() => togglePortalMut.mutate({ id: selected._id, portalEnabled: selected.portalEnabled !== false })}
         />
       )}
     </div>

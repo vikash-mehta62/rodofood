@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+const Restaurant = require('../models/Restaurant');
 const { errorResponse } = require('../utils/apiResponse');
 
 /**
@@ -32,19 +33,36 @@ const protect = async (req, res, next) => {
 
 /**
  * Role-based access control
- * @param {...string} roles - allowed roles
  */
 const authorize = (...roles) => {
   return (req, res, next) => {
     if (!roles.includes(req.user.role)) {
-      return errorResponse(
-        res,
-        `Role '${req.user.role}' is not authorized for this action.`,
-        403
-      );
+      return errorResponse(res, `Role '${req.user.role}' is not authorized for this action.`, 403);
     }
     next();
   };
 };
 
-module.exports = { protect, authorize };
+/**
+ * Check restaurant portal access — blocks restaurant owner if portalEnabled=false
+ */
+const checkPortalAccess = async (req, res, next) => {
+  try {
+    if (req.user.role !== 'restaurant') return next();
+    const restaurant = await Restaurant.findOne({ owner: req.user._id }).select('portalEnabled isActive');
+    if (!restaurant) return errorResponse(res, 'Restaurant not found.', 404);
+    if (!restaurant.isActive) {
+      return errorResponse(res, 'Your restaurant has been deactivated. Please contact support.', 403);
+    }
+    // portalEnabled: undefined means not yet set = treat as enabled (true)
+    // Only block if explicitly set to false
+    if (restaurant.portalEnabled === false) {
+      return errorResponse(res, 'Your restaurant portal access has been disabled by admin. Please contact support.', 403);
+    }
+    next();
+  } catch (error) {
+    next(error);
+  }
+};
+
+module.exports = { protect, authorize, checkPortalAccess };

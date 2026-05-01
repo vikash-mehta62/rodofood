@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+const Restaurant = require('../models/Restaurant');
 const { generateOTP, sendOTP, OTP_EXPIRY_MINUTES } = require('../utils/otpService');
 const { successResponse, errorResponse } = require('../utils/apiResponse');
 
@@ -18,6 +19,19 @@ exports.sendOtp = async (req, res, next) => {
 
     if (user && user.otpAttempts >= 3 && user.otpExpiry > new Date()) {
       return errorResponse(res, 'Too many OTP requests. Please wait 10 minutes.', 429);
+    }
+
+    // If existing restaurant — check portal access before sending OTP
+    if (user && user.role === 'restaurant') {
+      const restaurant = await Restaurant.findOne({ owner: user._id }).select('portalEnabled isActive');
+      if (restaurant) {
+        if (!restaurant.isActive) {
+          return errorResponse(res, 'Your restaurant has been deactivated. Please contact support.', 403);
+        }
+        if (restaurant.portalEnabled === false) {
+          return errorResponse(res, 'Your restaurant portal access has been disabled by admin. Please contact support.', 403);
+        }
+      }
     }
 
     const otp = generateOTP();
@@ -74,6 +88,18 @@ exports.verifyOtp = async (req, res, next) => {
 
     const token = generateToken(user._id);
     const isNewUser = !user.name;
+
+    // Always check portal access — new users won't have a restaurant yet (allowed through)
+    // Existing restaurant owners must have portal enabled
+    const restaurant = await Restaurant.findOne({ owner: user._id }).select('portalEnabled isActive');
+    if (restaurant) {
+      if (!restaurant.isActive) {
+        return errorResponse(res, 'Your restaurant has been deactivated. Please contact support.', 403);
+      }
+      if (restaurant.portalEnabled !== true && restaurant.portalEnabled !== undefined) {
+        return errorResponse(res, 'Your restaurant portal access has been disabled by admin. Please contact support.', 403);
+      }
+    }
 
     return successResponse(
       res,

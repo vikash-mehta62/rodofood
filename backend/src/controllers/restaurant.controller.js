@@ -45,10 +45,11 @@ exports.getRestaurantsByRoute = async (req, res, next) => {
     const fromOrder = fromWp ? fromWp.order : 0;
     const toOrder = toWp ? toWp.order : route.waypoints.length - 1;
 
-    // Fetch all restaurants on this route
+    // Fetch all restaurants on this route — only active AND portal enabled
     const allRestaurants = await Restaurant.find({
       routes: routeId,
       isActive: true,
+      portalEnabled: true,
     }).lean();
 
     const filtered = filterRestaurantsByRoute(allRestaurants, fromOrder, toOrder);
@@ -104,9 +105,11 @@ exports.getRestaurantsByRoute = async (req, res, next) => {
  */
 exports.getRestaurantById = async (req, res, next) => {
   try {
-    const restaurant = await Restaurant.findById(req.params.id)
-      .populate('routes', 'name slug')
-      .lean();
+    const restaurant = await Restaurant.findOne({
+      _id: req.params.id,
+      isActive: true,
+      portalEnabled: true,
+    }).populate('routes', 'name slug').lean();
     if (!restaurant) return errorResponse(res, 'Restaurant not found', 404);
     return successResponse(res, { restaurant });
   } catch (error) {
@@ -225,6 +228,24 @@ exports.updateRestaurant = async (req, res, next) => {
     });
     if (!restaurant) return errorResponse(res, 'Restaurant not found', 404);
     return successResponse(res, { restaurant }, 'Restaurant updated');
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.togglePortalAccess = async (req, res, next) => {
+  try {
+    const restaurant = await Restaurant.findById(req.params.id);
+    if (!restaurant) return errorResponse(res, 'Restaurant not found', 404);
+    // Treat undefined as true (default enabled), then toggle
+    const current = restaurant.portalEnabled !== false;
+    restaurant.portalEnabled = !current;
+    await restaurant.save();
+    return successResponse(
+      res,
+      { portalEnabled: restaurant.portalEnabled },
+      `Portal access ${restaurant.portalEnabled ? 'enabled' : 'disabled'}`
+    );
   } catch (error) {
     next(error);
   }

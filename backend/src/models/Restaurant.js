@@ -49,6 +49,8 @@ const restaurantSchema = new mongoose.Schema(
     // Stats
     totalOrders: { type: Number, default: 0 },
     totalEarnings: { type: Number, default: 0 },
+    // Admin portal access control
+    portalEnabled: { type: Boolean, default: true }, // false = restaurant owner cannot login
   },
   { timestamps: true }
 );
