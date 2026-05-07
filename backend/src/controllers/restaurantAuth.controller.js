@@ -50,10 +50,7 @@ exports.sendOtp = async (req, res, next) => {
 
     await sendOTP(phone, otp);
 
-    const responseData = process.env.NODE_ENV === 'development'
-      ? { phone, devOtp: otp }
-      : { phone };
-
+    const responseData = { phone };
     return successResponse(res, responseData, 'OTP sent successfully');
   } catch (error) {
     next(error);

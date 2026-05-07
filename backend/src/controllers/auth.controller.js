@@ -61,11 +61,8 @@ exports.sendOtp = async (req, res, next) => {
 
     await sendOTP(phone, otp);
 
-    // In development, return OTP in response for testing
-    const responseData = process.env.NODE_ENV === 'development'
-      ? { phone, devOtp: otp }
-      : { phone };
-
+    // Always return just phone — no devOtp in production
+    const responseData = { phone };
     return successResponse(res, responseData, 'OTP sent successfully');
   } catch (error) {
     next(error);

@@ -2,10 +2,10 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
 // Public routes — no auth needed
-const PUBLIC_PATHS = ['/landing', '/login', '/restaurant-register', '/'];
+const PUBLIC_PATHS = ['/landing', '/login', '/register', '/restaurant-register', '/restaurant-login', '/admin-login', '/restaurant-register', '/'];
 
 // Auth-only routes (redirect away if already logged in)
-const AUTH_ONLY = ['/login'];
+const AUTH_ONLY = ['/login', '/register', '/admin-login'];
 
 // Protected route prefixes
 const PROTECTED_PREFIXES = [

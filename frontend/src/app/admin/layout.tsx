@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   LayoutDashboard, Store, ShoppingBag, Users,
-  Tag, MapPin, FileText, LogOut, Menu, X, Shield
+  Tag, MapPin, FileText, LogOut, Menu, X, Shield, Bell
 } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { cn } from '@/lib/utils';
@@ -14,6 +14,7 @@ const NAV = [
   { href: '/admin/restaurants',  icon: Store,           label: 'Restaurants' },
   { href: '/admin/orders',       icon: ShoppingBag,     label: 'Orders'      },
   { href: '/admin/users',        icon: Users,           label: 'Users'       },
+  { href: '/admin/notifications', icon: Bell,           label: 'Notifications' },
   { href: '/admin/coupons',      icon: Tag,             label: 'Coupons'     },
   { href: '/admin/routes',       icon: MapPin,          label: 'Routes'      },
   { href: '/admin/cms',          icon: FileText,        label: 'CMS'         },

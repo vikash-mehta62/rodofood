@@ -19,6 +19,7 @@ const userSchema = new mongoose.Schema(
     name: { type: String, trim: true },
     phone: { type: String, required: true, unique: true },
     email: { type: String, lowercase: true, sparse: true },
+    password: { type: String }, // bcrypt hashed
     role: {
       type: String,
       enum: ['customer', 'restaurant', 'admin'],
@@ -26,25 +27,18 @@ const userSchema = new mongoose.Schema(
     },
     isActive: { type: Boolean, default: true },
     profileImage: { type: String },
-    fcmToken: { type: String }, // for push notifications
+    fcmToken: { type: String },
     lastLogin: { type: Date },
-    // OTP fields (not persisted long-term)
-    otp: { type: String },
-    otpExpiry: { type: Date },
-    otpAttempts: { type: Number, default: 0 },
   },
   { timestamps: true }
 );
 
-userSchema.index({ phone: 1 });
 userSchema.index({ role: 1 });
 
 // Remove sensitive fields from JSON output
 userSchema.methods.toJSON = function () {
   const obj = this.toObject();
-  delete obj.otp;
-  delete obj.otpExpiry;
-  delete obj.otpAttempts;
+  delete obj.password;
   return obj;
 };
 

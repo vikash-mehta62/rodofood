@@ -24,6 +24,10 @@ const supportRoutes = require('./routes/support.routes');
 const cmsRoutes = require('./routes/cms.routes');
 const adminRoutes = require('./routes/admin.routes');
 const restaurantAuthRoutes = require('./routes/restaurantAuth.routes');
+const notificationRoutes = require('./routes/notification.routes');
+const customerAuthRoutes = require('./routes/customerAuth.routes');
+const restaurantAuthNewRoutes = require('./routes/restaurantAuthNew.routes');
+const adminAuthRoutes = require('./routes/adminAuth.routes');
 
 const app = express();
 const server = http.createServer(app);
@@ -96,6 +100,10 @@ app.use(`${API}/support`, supportRoutes);
 app.use(`${API}/cms`, cmsRoutes);
 app.use(`${API}/admin`, adminRoutes);
 app.use(`${API}/restaurant-auth`, restaurantAuthRoutes);
+app.use(`${API}/notifications`, notificationRoutes);
+app.use(`${API}/customer`, customerAuthRoutes);
+app.use(`${API}/restaurant`, restaurantAuthNewRoutes);
+app.use(`${API}/admin-auth`, adminAuthRoutes);
 
 // ─── Swagger Docs ─────────────────────────────────────────────────────────────
 if (process.env.NODE_ENV !== 'production') {

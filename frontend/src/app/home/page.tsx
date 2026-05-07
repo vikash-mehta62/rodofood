@@ -9,6 +9,7 @@ import { useTripStore } from '@/store/tripStore';
 import BottomNav from '@/components/shared/BottomNav';
 import RestaurantCard from '@/components/customer/RestaurantCard';
 import CartButton from '@/components/customer/CartButton';
+import NotificationBell from '@/components/customer/NotificationBell';
 import { formatCurrency } from '@/lib/utils';
 import { resolveImage } from '@/lib/config';
 import type { Restaurant } from '@/types';
@@ -196,6 +197,7 @@ export default function HomePage() {
                 {(user?.name?.[0] || 'U').toUpperCase()}
               </div>
             </Link>
+            <NotificationBell />
           </div>
 
           {/* Search */}
