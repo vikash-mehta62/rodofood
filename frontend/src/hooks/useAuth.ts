@@ -9,7 +9,7 @@ export const useCustomerLogin = () => {
   const { setAuth } = useAuthStore();
   const router = useRouter();
   return useMutation({
-    mutationFn: (data: { phone: string; password: string }) =>
+    mutationFn: (data: { phone?: string; email?: string; password: string }) =>
       api.post('/customer/login', data),
     onSuccess: (res) => {
       const { token, user } = res.data.data;
@@ -19,12 +19,18 @@ export const useCustomerLogin = () => {
   });
 };
 
-export const useCustomerRegister = () => {
+export const useCustomerRegister = () =>
+  useMutation({
+    mutationFn: (data: { name: string; phone: string; email: string; password: string }) =>
+      api.post('/customer/register', data),
+  });
+
+export const useCustomerVerifyEmail = () => {
   const { setAuth } = useAuthStore();
   const router = useRouter();
   return useMutation({
-    mutationFn: (data: { name: string; phone: string; password: string; email?: string }) =>
-      api.post('/customer/register', data),
+    mutationFn: (data: { email: string; otp: string }) =>
+      api.post('/customer/verify-email', data),
     onSuccess: (res) => {
       const { token, user } = res.data.data;
       setAuth(user, token);
@@ -33,12 +39,15 @@ export const useCustomerRegister = () => {
   });
 };
 
+export const useResendCustomerOtp = () =>
+  useMutation({ mutationFn: (email: string) => api.post('/customer/resend-otp', { email }) });
+
 // ── Restaurant ────────────────────────────────────────────────────────────────
 export const useRestaurantLogin = () => {
   const { setAuth } = useAuthStore();
   const router = useRouter();
   return useMutation({
-    mutationFn: (data: { phone: string; password: string }) =>
+    mutationFn: (data: { phone?: string; email?: string; password: string }) =>
       api.post('/restaurant/login', data),
     onSuccess: (res) => {
       const { token, user } = res.data.data;
@@ -48,12 +57,18 @@ export const useRestaurantLogin = () => {
   });
 };
 
-export const useRestaurantRegister = () => {
+export const useRestaurantRegister = () =>
+  useMutation({
+    mutationFn: (data: { name: string; phone: string; email: string; password: string }) =>
+      api.post('/restaurant/register', data),
+  });
+
+export const useRestaurantVerifyEmail = () => {
   const { setAuth } = useAuthStore();
   const router = useRouter();
   return useMutation({
-    mutationFn: (data: { name: string; phone: string; password: string; email?: string }) =>
-      api.post('/restaurant/register', data),
+    mutationFn: (data: { email: string; otp: string }) =>
+      api.post('/restaurant/verify-email', data),
     onSuccess: (res) => {
       const { token, user } = res.data.data;
       setAuth(user, token);
@@ -61,6 +76,9 @@ export const useRestaurantRegister = () => {
     },
   });
 };
+
+export const useResendRestaurantOtp = () =>
+  useMutation({ mutationFn: (email: string) => api.post('/restaurant/resend-otp', { email }) });
 
 // ── Admin ─────────────────────────────────────────────────────────────────────
 export const useAdminLogin = () => {

@@ -29,6 +29,10 @@ const userSchema = new mongoose.Schema(
     profileImage: { type: String },
     fcmToken: { type: String },
     lastLogin: { type: Date },
+    // Email verification
+    isEmailVerified: { type: Boolean, default: false },
+    emailOtp: { type: String },
+    emailOtpExpiry: { type: Date },
   },
   { timestamps: true }
 );
@@ -39,6 +43,8 @@ userSchema.index({ role: 1 });
 userSchema.methods.toJSON = function () {
   const obj = this.toObject();
   delete obj.password;
+  delete obj.emailOtp;
+  delete obj.emailOtpExpiry;
   return obj;
 };
 
