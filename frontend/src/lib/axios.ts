@@ -3,7 +3,7 @@ import { API_URL } from '@/lib/config';
 
 const api = axios.create({
   baseURL: API_URL,
-  timeout: 15000,
+  timeout: 60000, // 60s — handles Render cold start (free tier sleeps)
   headers: { 'Content-Type': 'application/json' },
 });
 

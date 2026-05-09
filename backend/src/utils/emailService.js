@@ -6,13 +6,17 @@ const generateEmailOTP = () => Math.floor(100000 + Math.random() * 900000).toStr
 const createTransporter = () =>
   nodemailer.createTransport({
     host: 'smtp.gmail.com',
-    port: 465,
-    secure: true,
-    family: 4, // force IPv4
+    port: 587,
+    secure: false, // STARTTLS
+    family: 4,     // force IPv4 — fixes Render IPv6 issue
+    tls: { rejectUnauthorized: false },
     auth: {
       user: process.env.GMAIL_USER,
       pass: process.env.GMAIL_APP_PASSWORD,
     },
+    connectionTimeout: 30000,
+    greetingTimeout: 15000,
+    socketTimeout: 30000,
   });
 
 const sendEmailOTP = async (email, otp, name = '') => {
