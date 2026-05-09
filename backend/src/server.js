@@ -57,6 +57,9 @@ io.on('connection', (socket) => {
 
 app.set('io', io);
 
+// Trust proxy — required for Render/Heroku/Railway deployments
+app.set('trust proxy', 1);
+
 // ─── Security Middleware ──────────────────────────────────────────────────────
 app.use(helmet());
 app.use(cors({ origin: ['https://rodofood.vercel.app', 'https://www.rodofood.com','https://rodofood.com','http://localhost:3000'], credentials: true }));
