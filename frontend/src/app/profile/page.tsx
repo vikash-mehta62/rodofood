@@ -37,8 +37,9 @@ export default function ProfilePage() {
     { icon: FileText,      label: 'About Us',         sub: 'Our story & mission',      href: '/pages/about',   action: null, color: 'text-gray-500 bg-gray-100' },
     { icon: FileText,      label: 'Terms & Conditions', sub: 'Our terms of service',   href: '/pages/terms',   action: null, color: 'text-gray-500 bg-gray-100' },
     { icon: FileText,      label: 'Privacy Policy',   sub: 'How we use your data',     href: '/pages/privacy', action: null, color: 'text-gray-500 bg-gray-100' },
-    { icon: FileText,      label: 'Refund Policy',    sub: 'Cancellation & refunds',   href: '/pages/refund',  action: null, color: 'text-gray-500 bg-gray-100' },
-    { icon: FileText,      label: 'Contact Us',       sub: 'Get in touch with us',     href: '/pages/contact', action: null, color: 'text-gray-500 bg-gray-100' },
+    { icon: FileText,      label: 'Refund Policy',    sub: 'Cancellation & refunds',   href: '/pages/refund',    action: null, color: 'text-gray-500 bg-gray-100' },
+    { icon: FileText,      label: 'Shipping Policy',  sub: 'How orders are fulfilled', href: '/pages/shipping',  action: null, color: 'text-gray-500 bg-gray-100' },
+    { icon: FileText,      label: 'Contact Us',       sub: 'Get in touch with us',     href: '/pages/contact',   action: null, color: 'text-gray-500 bg-gray-100' },
   ];
 
   return (

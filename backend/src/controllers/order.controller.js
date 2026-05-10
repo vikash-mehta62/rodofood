@@ -3,6 +3,7 @@ const MenuItem = require('../models/MenuItem');
 const Restaurant = require('../models/Restaurant');
 const Coupon = require('../models/Coupon');
 const { successResponse, errorResponse, paginatedResponse } = require('../utils/apiResponse');
+const { sendOrderConfirmationEmail } = require('../utils/emailService');
 
 // ─── Customer ─────────────────────────────────────────────────────────────────
 
@@ -105,6 +106,16 @@ exports.createOrder = async (req, res, next) => {
       { path: 'restaurant', select: 'name address location phone' },
       { path: 'items.menuItem', select: 'name image' },
     ]);
+
+    // Send order confirmation email for non-online payment methods
+    // (online payment orders get email after Razorpay verification)
+    if (paymentMethod !== 'online' && req.user.email) {
+      await populated.populate({ path: 'customer', select: 'name email' });
+      sendOrderConfirmationEmail(req.user.email, {
+        order: populated,
+        customerName: req.user.name,
+      }).catch(() => {}); // fire-and-forget
+    }
 
     return successResponse(res, { order: populated }, 'Order placed successfully', 201);
   } catch (error) {
@@ -228,6 +239,24 @@ exports.getRestaurantEarnings = async (req, res, next) => {
       thisMonth: monthStats[0] || { total: 0, count: 0 },
       allTime: allTime[0] || { total: 0, count: 0 },
     });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// ─── Customer Cancel ──────────────────────────────────────────────────────────
+
+exports.cancelOrder = async (req, res, next) => {
+  try {
+    const order = await Order.findOne({ _id: req.params.id, customer: req.user._id });
+    if (!order) return errorResponse(res, 'Order not found', 404);
+    if (!['pending'].includes(order.status)) {
+      return errorResponse(res, 'Only pending orders can be cancelled', 400);
+    }
+    order.status = 'cancelled';
+    order.statusHistory.push({ status: 'cancelled', timestamp: new Date(), note: 'Cancelled by customer' });
+    await order.save();
+    return successResponse(res, { order }, 'Order cancelled');
   } catch (error) {
     next(error);
   }

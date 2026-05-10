@@ -51,4 +51,155 @@ const sendEmailOTP = async (email, otp, name = '') => {
 
 const EMAIL_OTP_EXPIRY_MINUTES = 10;
 
-module.exports = { generateEmailOTP, sendEmailOTP, EMAIL_OTP_EXPIRY_MINUTES };
+/**
+ * Send order confirmation email with summary and payment details
+ */
+const sendOrderConfirmationEmail = async (email, { order, customerName }) => {
+  try {
+    const transporter = createTransporter();
+
+    const paymentLabels = {
+      cash: '💵 Cash at Restaurant',
+      upi_at_restaurant: '📱 UPI at Restaurant',
+      online: '💳 Online (Razorpay)',
+    };
+
+    const statusColors = {
+      pending: '#F59E0B',
+      confirmed: '#3B82F6',
+      preparing: '#8B5CF6',
+      ready: '#10B981',
+      completed: '#059669',
+    };
+
+    const itemRows = order.items
+      .map(
+        (item) => `
+        <tr>
+          <td style="padding:8px 0;border-bottom:1px solid #f3f4f6;color:#374151;font-size:13px;">${item.name}</td>
+          <td style="padding:8px 0;border-bottom:1px solid #f3f4f6;color:#6B7280;font-size:13px;text-align:center;">x${item.quantity}</td>
+          <td style="padding:8px 0;border-bottom:1px solid #f3f4f6;color:#111827;font-size:13px;text-align:right;font-weight:600;">₹${(item.price * item.quantity).toFixed(2)}</td>
+        </tr>`
+      )
+      .join('');
+
+    const restaurantName =
+      typeof order.restaurant === 'object' ? order.restaurant.name : 'Restaurant';
+
+    const etaText = order.customerETA
+      ? new Date(order.customerETA).toLocaleString('en-IN', {
+          dateStyle: 'medium',
+          timeStyle: 'short',
+        })
+      : 'N/A';
+
+    await transporter.sendMail({
+      from: `"Rodofood" <${process.env.GMAIL_USER}>`,
+      to: email,
+      subject: `Order Confirmed #${order.orderNumber} — Rodofood`,
+      html: `
+        <div style="font-family:Arial,sans-serif;max-width:520px;margin:0 auto;padding:24px;background:#fff;border-radius:12px;border:1px solid #eee;">
+          <!-- Header -->
+          <div style="text-align:center;margin-bottom:20px;">
+            <h2 style="color:#FF6B35;margin:0;">Rodo<span style="color:#1a1a2e">food</span></h2>
+            <p style="color:#666;font-size:12px;margin-top:4px;">Highway Food Pre-Ordering</p>
+          </div>
+
+          <!-- Status Badge -->
+          <div style="text-align:center;margin-bottom:20px;">
+            <span style="background:${statusColors[order.status] || '#6B7280'};color:#fff;padding:6px 18px;border-radius:20px;font-size:13px;font-weight:700;letter-spacing:0.5px;">
+              ✅ Order Placed Successfully
+            </span>
+          </div>
+
+          <p style="color:#333;font-size:15px;margin-bottom:4px;">Hi ${customerName || 'there'},</p>
+          <p style="color:#555;font-size:13px;line-height:1.6;margin-bottom:20px;">
+            Your order has been placed at <strong>${restaurantName}</strong>. Here's your order summary:
+          </p>
+
+          <!-- Order Info -->
+          <div style="background:#FFF7ED;border:1px solid #FED7AA;border-radius:10px;padding:14px 16px;margin-bottom:20px;">
+            <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
+              <span style="color:#92400E;font-size:12px;font-weight:600;">Order Number</span>
+              <span style="color:#1a1a2e;font-size:13px;font-weight:800;">#${order.orderNumber}</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
+              <span style="color:#92400E;font-size:12px;font-weight:600;">Order Type</span>
+              <span style="color:#1a1a2e;font-size:13px;font-weight:700;">${order.orderType === 'dine-in' ? '🍽️ Dine-in' : '🥡 Takeaway'}</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;">
+              <span style="color:#92400E;font-size:12px;font-weight:600;">Your ETA</span>
+              <span style="color:#1a1a2e;font-size:13px;font-weight:700;">${etaText}</span>
+            </div>
+          </div>
+
+          <!-- Items Table -->
+          <table style="width:100%;border-collapse:collapse;margin-bottom:16px;">
+            <thead>
+              <tr>
+                <th style="text-align:left;font-size:11px;color:#9CA3AF;font-weight:600;padding-bottom:8px;border-bottom:2px solid #F3F4F6;text-transform:uppercase;">Item</th>
+                <th style="text-align:center;font-size:11px;color:#9CA3AF;font-weight:600;padding-bottom:8px;border-bottom:2px solid #F3F4F6;text-transform:uppercase;">Qty</th>
+                <th style="text-align:right;font-size:11px;color:#9CA3AF;font-weight:600;padding-bottom:8px;border-bottom:2px solid #F3F4F6;text-transform:uppercase;">Price</th>
+              </tr>
+            </thead>
+            <tbody>${itemRows}</tbody>
+          </table>
+
+          <!-- Bill Summary -->
+          <div style="background:#F9FAFB;border-radius:10px;padding:14px 16px;margin-bottom:20px;">
+            <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
+              <span style="color:#6B7280;font-size:13px;">Item Total</span>
+              <span style="color:#111827;font-size:13px;font-weight:600;">₹${order.subtotal.toFixed(2)}</span>
+            </div>
+            ${
+              order.discount > 0
+                ? `<div style="display:flex;justify-content:space-between;margin-bottom:6px;">
+              <span style="color:#059669;font-size:13px;">Coupon Discount${order.couponCode ? ` (${order.couponCode})` : ''}</span>
+              <span style="color:#059669;font-size:13px;font-weight:600;">− ₹${order.discount.toFixed(2)}</span>
+            </div>`
+                : ''
+            }
+            <div style="display:flex;justify-content:space-between;margin-bottom:10px;">
+              <span style="color:#6B7280;font-size:13px;">GST (${order.gstRate}%)</span>
+              <span style="color:#111827;font-size:13px;font-weight:600;">₹${order.gstAmount.toFixed(2)}</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;border-top:2px dashed #E5E7EB;padding-top:10px;">
+              <span style="color:#111827;font-size:15px;font-weight:800;">Total Paid</span>
+              <span style="color:#FF6B35;font-size:16px;font-weight:900;">₹${order.totalAmount.toFixed(2)}</span>
+            </div>
+          </div>
+
+          <!-- Payment Method -->
+          <div style="background:#EFF6FF;border:1px solid #BFDBFE;border-radius:10px;padding:12px 16px;margin-bottom:20px;display:flex;align-items:center;gap:10px;">
+            <span style="font-size:20px;">💳</span>
+            <div>
+              <p style="margin:0;font-size:11px;color:#1E40AF;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Payment Method</p>
+              <p style="margin:4px 0 0;font-size:14px;color:#1E3A8A;font-weight:700;">${paymentLabels[order.paymentMethod] || order.paymentMethod}</p>
+              ${
+                order.paymentStatus === 'paid'
+                  ? `<p style="margin:2px 0 0;font-size:11px;color:#059669;font-weight:600;">✅ Payment Confirmed</p>`
+                  : `<p style="margin:2px 0 0;font-size:11px;color:#D97706;font-weight:600;">⏳ Payment Pending</p>`
+              }
+            </div>
+          </div>
+
+          <p style="color:#999;font-size:12px;text-align:center;line-height:1.6;">
+            Show this email or your order number at the restaurant.<br/>
+            For support, reply to this email.
+          </p>
+          <hr style="border:none;border-top:1px solid #eee;margin:20px 0;" />
+          <p style="color:#bbb;font-size:11px;text-align:center;">© 2026 Rodofood · India's First Highway Food Network</p>
+        </div>
+      `,
+    });
+
+    logger.info(`Order confirmation email sent to ${email} for order ${order.orderNumber}`);
+    return { success: true };
+  } catch (error) {
+    logger.error(`Order confirmation email failed for ${email}: ${error.message}`);
+    // Don't throw — email failure shouldn't break order placement
+    return { success: false };
+  }
+};
+
+module.exports = { generateEmailOTP, sendEmailOTP, EMAIL_OTP_EXPIRY_MINUTES, sendOrderConfirmationEmail };

@@ -65,8 +65,14 @@ export const useAuthStore = create<AuthStore>()(
       name: 'rf_auth',
       partialize: (state) => ({ user: state.user, token: state.token, isAuthenticated: state.isAuthenticated }),
       onRehydrateStorage: () => (state) => {
-        // Sync cookie after rehydration from localStorage
-        if (state) syncCookie(state);
+        // Sync cookie AND localStorage token after rehydration
+        if (state) {
+          syncCookie(state);
+          // Restore rf_token in localStorage so axios interceptor can read it
+          if (state.token && typeof window !== 'undefined') {
+            localStorage.setItem('rf_token', state.token);
+          }
+        }
       },
     }
   )

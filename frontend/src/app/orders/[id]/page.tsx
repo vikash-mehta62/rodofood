@@ -229,19 +229,47 @@ export default function OrderDetailPage() {
           <span className="text-2xl">
             {order.paymentMethod === 'cash' ? '💵' : order.paymentMethod === 'upi_at_restaurant' ? '📱' : '💳'}
           </span>
-          <div>
+          <div className="flex-1">
             <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-0.5">Payment</p>
             <p className="text-sm font-bold text-gray-900">
               {order.paymentMethod === 'cash' ? 'Cash at Restaurant' :
-               order.paymentMethod === 'upi_at_restaurant' ? 'UPI at Restaurant' : 'Online Payment'}
+               order.paymentMethod === 'upi_at_restaurant' ? 'UPI at Restaurant' : 'Online Payment (Razorpay)'}
             </p>
+            {order.paymentMethod === 'online' && order.paymentTransactionId && (
+              <p className="text-[10px] text-gray-400 mt-0.5 font-mono">
+                Txn: {order.paymentTransactionId}
+              </p>
+            )}
           </div>
           <span className={`ml-auto text-xs font-bold px-2.5 py-1 rounded-full border ${
-            order.paymentStatus === 'paid' ? 'text-emerald-700 bg-emerald-50 border-emerald-200' : 'text-amber-700 bg-amber-50 border-amber-200'
+            order.paymentStatus === 'paid'
+              ? 'text-emerald-700 bg-emerald-50 border-emerald-200'
+              : order.paymentStatus === 'failed'
+              ? 'text-red-700 bg-red-50 border-red-200'
+              : 'text-amber-700 bg-amber-50 border-amber-200'
           }`}>
-            {order.paymentStatus === 'paid' ? '✓ Paid' : 'Pending'}
+            {order.paymentStatus === 'paid' ? '✓ Paid' : order.paymentStatus === 'failed' ? '✗ Failed' : '⏳ Pending'}
           </span>
         </div>
+
+        {/* Razorpay verification badge — online paid orders */}
+        {order.paymentMethod === 'online' && order.paymentStatus === 'paid' && (
+          <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 flex items-center gap-3">
+            <div className="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center flex-shrink-0">
+              <ShieldCheck className="w-5 h-5 text-emerald-600" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-bold text-emerald-800">Payment Verified</p>
+              <p className="text-xs text-emerald-600 mt-0.5">Secured by Razorpay · Payment ID confirmed</p>
+              {order.paymentTransactionId && (
+                <p className="text-[10px] text-emerald-500 font-mono mt-1 truncate">
+                  {order.paymentTransactionId}
+                </p>
+              )}
+            </div>
+            <img src="https://razorpay.com/favicon.ico" alt="Razorpay" className="w-6 h-6 rounded flex-shrink-0" />
+          </div>
+        )}
 
         {/* Rating section — only for completed orders */}
         {isCompleted && (

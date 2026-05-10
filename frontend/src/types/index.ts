@@ -143,6 +143,8 @@ export interface Order {
   status: OrderStatus;
   statusHistory: Array<{ status: string; timestamp: string; note?: string }>;
   paymentStatus: 'pending' | 'paid' | 'failed' | 'refunded';
+  paymentTransactionId?: string;
+  razorpayOrderId?: string;
   customerLocation?: { lat: number; lng: number; distanceFromRestaurantKm?: number };
   createdAt: string;
 }

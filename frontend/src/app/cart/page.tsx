@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Tag, Clock, Loader2, Plus, Minus, ChevronRight, ShieldCheck, Info, Zap, Timer } from 'lucide-react';
 import Link from 'next/link';
@@ -7,6 +7,13 @@ import { useCartStore } from '@/store/cartStore';
 import { usePlaceOrder } from '@/hooks/useOrders';
 import { formatCurrency } from '@/lib/utils';
 import api from '@/lib/axios';
+
+// Razorpay window type
+declare global {
+  interface Window {
+    Razorpay: new (options: Record<string, unknown>) => { open(): void };
+  }
+}
 
 const ETA_OPTIONS = [
   { label: 'Immediately', value: 0,  desc: 'I\'m already here', emoji: '⚡', color: 'from-orange-500 to-red-500' },
@@ -18,9 +25,8 @@ const ETA_OPTIONS = [
 const PAYMENT_OPTIONS = [
   { value: 'cash', label: 'Cash at Restaurant', emoji: '💵', desc: 'Pay when you arrive' },
   { value: 'upi_at_restaurant', label: 'UPI at Restaurant', emoji: '📱', desc: 'Scan & pay on arrival' },
-  { value: 'online', label: 'Pay Online', emoji: '💳', desc: 'PhonePe / Card' },
+  { value: 'online', label: 'Pay Online', emoji: '💳', desc: 'Razorpay / Card / UPI' },
 ] as const;
-
 export default function CartPage() {
   const router = useRouter();
   const cart = useCartStore();
@@ -33,6 +39,8 @@ export default function CartPage() {
   const [showCouponInput, setShowCouponInput] = useState(false);
   const [customTime, setCustomTime] = useState('');
   const [selectedEta, setSelectedEta] = useState<number | null>(null);
+  const [paymentLoading, setPaymentLoading] = useState(false);
+  const [paymentError, setPaymentError] = useState('');
 
   const subtotal = cart.getSubtotal();
   const gstRate = 5;
@@ -54,22 +62,114 @@ export default function CartPage() {
     }
   };
 
-  const handlePlaceOrder = async () => {
+  const handlePlaceOrder = useCallback(async () => {
     if (!cart.customerETA || !cart.restaurantId) return;
+    setPaymentLoading(true);
+    setPaymentError('');
+
+    // Read token fresh — avoids stale closure issues with OrderOptions defined inside CartPage
+    const getAuthToken = () =>
+      localStorage.getItem('rf_token') ||
+      (() => { try { return JSON.parse(localStorage.getItem('rf_auth') || '{}')?.state?.token ?? null; } catch { return null; } })();
+
     try {
-      const res = await placeOrder.mutateAsync({
+      // ── Cash / UPI — create order directly ───────────────────────────────
+      if (paymentMethod !== 'online') {
+        const res = await placeOrder.mutateAsync({
+          restaurantId: cart.restaurantId,
+          items: cart.items.map(i => ({ menuItemId: i.menuItem._id, quantity: i.quantity })),
+          orderType: cart.orderType,
+          paymentMethod,
+          customerETA: cart.customerETA,
+          ...(cart.etaMinutes != null ? { etaMinutes: cart.etaMinutes } : {}),
+          couponCode: cart.couponCode || undefined,
+        });
+        cart.clearCart();
+        router.push(`/orders/${res.data.data.order._id}`);
+        return;
+      }
+
+      // ── Online — Razorpay first, order created only after payment ─────────
+      const tok = getAuthToken();
+      const headers = tok ? { Authorization: `Bearer ${tok}` } : {};
+
+      // Step 1: validate cart on backend + get price snapshot (no Razorpay call yet)
+      const initiateRes = await api.post('/payments/initiate', {
         restaurantId: cart.restaurantId,
         items: cart.items.map(i => ({ menuItemId: i.menuItem._id, quantity: i.quantity })),
         orderType: cart.orderType,
-        paymentMethod,
         customerETA: cart.customerETA,
-        etaMinutes: cart.etaMinutes,
+        ...(cart.etaMinutes != null ? { etaMinutes: cart.etaMinutes } : {}),
         couponCode: cart.couponCode || undefined,
+      }, { headers });
+
+      const { amount, keyId, snapshot } = initiateRes.data.data;
+
+      // Step 2: wait for Razorpay script (loaded in <head> via layout)
+      let waited = 0;
+      while (!window.Razorpay && waited < 8000) {
+        await new Promise(r => setTimeout(r, 100));
+        waited += 100;
+      }
+      if (!window.Razorpay) {
+        setPaymentError('Payment gateway failed to load. Please refresh and try again.');
+        return;
+      }
+
+      // Step 3: open Razorpay checkout modal (no pre-created order_id needed)
+      const paymentResponse = await new Promise<{
+        razorpay_order_id: string;
+        razorpay_payment_id: string;
+        razorpay_signature: string;
+      } | null>((resolve) => {
+        const rzp = new window.Razorpay({
+          key: keyId,
+          amount,
+          currency: 'INR',
+          name: 'Rodofood',
+          description: 'Highway Food Pre-Order',
+          image: '/logo.jpeg',
+          handler: (response: {
+            razorpay_order_id: string;
+            razorpay_payment_id: string;
+            razorpay_signature: string;
+          }) => resolve(response),
+          prefill: {},
+          theme: { color: '#FF6B35' },
+          modal: { ondismiss: () => resolve(null) },
+        });
+        rzp.open();
       });
+
+      // Step 4: user dismissed without paying — stay on cart
+      if (!paymentResponse) {
+        setPaymentError('Payment cancelled. Your cart is still saved.');
+        return;
+      }
+      // Validate payment_id format (must start with 'pay_')
+      if (!paymentResponse.razorpay_payment_id?.startsWith('pay_')) {
+        setPaymentError('Invalid payment response. Please try again.');
+        return;
+      }
+
+      // Step 5: create order in DB after payment
+      const verifyRes = await api.post('/payments/verify', {
+        razorpay_payment_id: paymentResponse.razorpay_payment_id,
+        snapshot,
+      }, { headers });
+
       cart.clearCart();
-      router.push(`/orders/${res.data.data.order._id}`);
-    } catch (err) { console.error(err); }
-  };
+      router.push(`/orders/${verifyRes.data.data.order._id}`);
+
+    } catch (err: any) {
+      console.error(err);
+      setPaymentError(err?.response?.data?.message || 'Something went wrong. Please try again.');
+    } finally {
+      setPaymentLoading(false);
+    }
+  }, [cart, paymentMethod, placeOrder, router]);
+
+  const isLoading = placeOrder.isPending || paymentLoading;
 
   /* ── Empty state ── */
   if (cart.items.length === 0) {
@@ -125,7 +225,8 @@ export default function CartPage() {
                     cart.setETA(value, eta);
                     setCustomTime('');
                   } else {
-                    cart.setETA(0, '');
+                    // Custom time selected — clear previous ETA until user picks a time
+                    cart.setETA(null, null);
                   }
                 }}
                 className={`relative flex flex-col items-start p-3.5 rounded-2xl border-2 transition-all text-left overflow-hidden ${
@@ -289,17 +390,20 @@ export default function CartPage() {
         {!cart.customerETA && (
           <p className="text-xs text-center text-orange-500 font-semibold mb-2">⚠️ Please select your arrival time above</p>
         )}
-        <button onClick={handlePlaceOrder} disabled={!cart.customerETA || placeOrder.isPending}
+        {paymentError && (
+          <p className="text-xs text-center text-red-500 font-semibold mb-2">⚠️ {paymentError}</p>
+        )}
+        <button onClick={handlePlaceOrder} disabled={!cart.customerETA || isLoading}
           className="w-full h-12 text-white font-extrabold text-sm rounded-xl flex items-center justify-between px-5 transition-all active:scale-[0.98] disabled:opacity-50 bg-gradient-to-r from-orange-500 to-orange-400 shadow-lg shadow-orange-200 hover:shadow-orange-300 disabled:shadow-none">
-          {placeOrder.isPending ? (
+          {isLoading ? (
             <div className="flex items-center gap-2 mx-auto">
               <Loader2 className="w-4 h-4 animate-spin" />
-              <span>Placing Order...</span>
+              <span>{paymentMethod === 'online' ? 'Processing...' : 'Placing Order...'}</span>
             </div>
           ) : (
             <>
               <span>{cart.getItemCount()} items</span>
-              <span>Place Order</span>
+              <span>{paymentMethod === 'online' ? 'Pay Now' : 'Place Order'}</span>
               <span>{formatCurrency(total)}</span>
             </>
           )}
@@ -394,17 +498,20 @@ export default function CartPage() {
         {!cart.customerETA && (
           <p className="text-xs text-center text-orange-500 font-semibold mb-2">⚠️ Please select your arrival time above</p>
         )}
-        <button onClick={handlePlaceOrder} disabled={!cart.customerETA || placeOrder.isPending}
+        {paymentError && (
+          <p className="text-xs text-center text-red-500 font-semibold mb-2">⚠️ {paymentError}</p>
+        )}
+        <button onClick={handlePlaceOrder} disabled={!cart.customerETA || isLoading}
           className="w-full h-13 text-white font-extrabold text-sm rounded-xl flex items-center justify-between px-5 py-3.5 transition-all active:scale-[0.98] disabled:opacity-50 bg-gradient-to-r from-orange-500 to-orange-400 shadow-lg shadow-orange-200 disabled:shadow-none">
-          {placeOrder.isPending ? (
+          {isLoading ? (
             <div className="flex items-center gap-2 mx-auto">
               <Loader2 className="w-4 h-4 animate-spin" />
-              <span>Placing Order...</span>
+              <span>{paymentMethod === 'online' ? 'Processing...' : 'Placing Order...'}</span>
             </div>
           ) : (
             <>
               <span>{cart.getItemCount()} items</span>
-              <span>Place Order</span>
+              <span>{paymentMethod === 'online' ? 'Pay Now' : 'Place Order'}</span>
               <span>{formatCurrency(total)}</span>
             </>
           )}

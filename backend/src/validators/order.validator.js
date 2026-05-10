@@ -14,7 +14,7 @@ const createOrderSchema = Joi.object({
   orderType: Joi.string().valid('dine-in', 'takeaway').default('takeaway'),
   paymentMethod: Joi.string().valid('cash', 'upi_at_restaurant', 'online').required(),
   customerETA: Joi.date().iso().required(),
-  etaMinutes: Joi.number().valid(30, 45).optional(),
+  etaMinutes: Joi.number().integer().min(0).allow(null).optional(),
   couponCode: Joi.string().uppercase().optional(),
   customerLocation: Joi.object({
     lat: Joi.number().required(),

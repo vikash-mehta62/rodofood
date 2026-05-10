@@ -53,7 +53,11 @@ const orderSchema = new mongoose.Schema(
       enum: ['pending', 'paid', 'failed', 'refunded'],
       default: 'pending',
     },
-    paymentTransactionId: { type: String },
+    paymentTransactionId: { type: String }, // Razorpay payment_id
+    razorpayOrderId: { type: String },      // Razorpay order_id   // razorpay_payment_id
+    razorpayOrderId:      { type: String },   // rzp order id
+    razorpayPaymentId:    { type: String },   // rzp payment id
+    razorpaySignature:    { type: String },   // rzp signature (for audit)
     // Customer location at time of order
     customerLocation: {
       lat: Number,

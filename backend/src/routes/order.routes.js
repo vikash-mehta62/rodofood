@@ -10,6 +10,7 @@ router.post('/', protect, authorize('customer'), validate(createOrderSchema), ct
 router.get('/my', protect, authorize('customer'), ctrl.getMyOrders);
 router.get('/my/:id', protect, authorize('customer'), ctrl.getOrderById);
 router.post('/my/:id/rate', protect, authorize('customer'), ctrl.rateOrder);
+router.patch('/customer/:id/cancel', protect, authorize('customer'), ctrl.cancelOrder);
 
 // Restaurant owner — portal access checked
 router.get('/restaurant/earnings', protect, authorize('restaurant'), checkPortalAccess, ctrl.getRestaurantEarnings);
