@@ -14,7 +14,7 @@ router.patch('/owner/toggle-status', protect, authorize('restaurant'), checkPort
 
 // Admin
 router.get('/', protect, authorize('admin'), ctrl.getAllRestaurants);
-router.post('/', protect, authorize('admin'), ctrl.createRestaurant);
+router.post('/', protect, authorize('admin', 'restaurant'), ctrl.createRestaurant);
 router.put('/:id', protect, authorize('admin'), ctrl.updateRestaurant);
 router.patch('/:id/toggle-portal', protect, authorize('admin'), ctrl.togglePortalAccess);
 router.delete('/:id', protect, authorize('admin'), ctrl.deleteRestaurant);
