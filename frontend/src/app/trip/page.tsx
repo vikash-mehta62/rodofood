@@ -1,57 +1,118 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
-import {
-  ArrowUpDown, MapPin, Navigation, Loader2,
-  Search, X, ChevronDown, AlertCircle, RefreshCw
-} from 'lucide-react';
+import { ArrowLeftRight, MapPin, Navigation, Loader2, Search, X, Star, Clock, Zap, ChevronDown, AlertCircle } from 'lucide-react';
 import { useRoutes, useRestaurantsByRoute } from '@/hooks/useRestaurants';
 import { useTripStore } from '@/store/tripStore';
-import RestaurantCard from '@/components/customer/RestaurantCard';
 import BottomNav from '@/components/shared/BottomNav';
 import CartButton from '@/components/customer/CartButton';
+import Link from 'next/link';
+import { resolveImage } from '@/lib/config';
 import type { Restaurant } from '@/types';
 
 type SortKey = 'default' | 'rating' | 'distance' | 'prepTime';
-type FoodFilter = 'all' | 'veg' | 'non-veg' | 'both';
-type LocationState = 'idle' | 'requesting' | 'granted' | 'denied' | 'unavailable';
+type FoodFilter = 'all' | 'veg' | 'non-veg';
+type LocState = 'idle' | 'requesting' | 'granted' | 'denied' | 'unavailable';
 
-const FOOD_FILTERS: { key: FoodFilter; label: string; icon: string; active: string }[] = [
-  { key: 'all',     label: 'All',        icon: '🍽️', active: 'border-orange-400 text-orange-600 bg-orange-50' },
-  { key: 'veg',     label: 'Pure Veg',   icon: '🟢', active: 'border-emerald-500 text-emerald-700 bg-emerald-50' },
-  { key: 'non-veg', label: 'Non-Veg',    icon: '🔴', active: 'border-red-400 text-red-600 bg-red-50' },
-  { key: 'both',    label: 'Veg & More', icon: '🟡', active: 'border-amber-400 text-amber-700 bg-amber-50' },
+const CHIPS = [
+  { id: 'open',    label: '● Open Now',  type: 'toggle' },
+  { id: 'veg',     label: '🟢 Pure Veg', type: 'food' },
+  { id: 'non-veg', label: '🔴 Non-Veg',  type: 'food' },
+  { id: 'rating',  label: '⭐ Top Rated', type: 'sort' },
+  { id: 'distance',label: '📍 Nearest',  type: 'sort' },
+  { id: 'prepTime',label: '⚡ Fastest',  type: 'sort' },
 ];
 
-const SORT_OPTIONS: { key: SortKey; label: string; icon: string }[] = [
-  { key: 'default',  label: 'Relevance', icon: '✨' },
-  { key: 'rating',   label: 'Top Rated', icon: '⭐' },
-  { key: 'distance', label: 'Nearest',   icon: '📍' },
-  { key: 'prepTime', label: 'Fastest',   icon: '⚡' },
-];
+function RestaurantRow({ r }: { r: Restaurant }) {
+  const img = resolveImage(r.coverImage);
+  const isAhead = r.position === 'ahead';
+  const isPassed = r.position === 'passed';
+  return (
+    <Link href={`/restaurants/${r._id}`}>
+      <div className={`flex gap-3 bg-white rounded-2xl p-3 border border-gray-100 shadow-sm active:scale-[0.98] transition-all hover:shadow-md hover:border-orange-100 ${isPassed ? 'opacity-50' : ''}`}>
+        {/* Image */}
+        <div className="relative w-24 h-24 rounded-xl overflow-hidden flex-shrink-0 bg-orange-50">
+          {img
+            ? <img src={img} alt={r.name} className="w-full h-full object-cover" />
+            : <div className="w-full h-full flex items-center justify-center text-3xl opacity-20">🍽️</div>
+          }
+          {/* Open badge */}
+          <div className={`absolute bottom-1 left-1 text-[9px] font-black px-1.5 py-0.5 rounded-full ${r.isOpen ? 'bg-emerald-500 text-white' : 'bg-black/60 text-white/80'}`}>
+            {r.isOpen ? '● Open' : '● Closed'}
+          </div>
+        </div>
+
+        {/* Info */}
+        <div className="flex-1 min-w-0 py-0.5">
+          <div className="flex items-start justify-between gap-1 mb-0.5">
+            <h3 className="font-extrabold text-gray-900 text-sm leading-snug line-clamp-1">{r.name}</h3>
+            {isAhead && (
+              <span className="flex-shrink-0 text-[9px] font-black bg-orange-500 text-white px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
+                <Zap className="w-2 h-2" />Ahead
+              </span>
+            )}
+          </div>
+
+          {r.cuisines?.length > 0 && (
+            <p className="text-[11px] text-gray-400 truncate mb-1.5">{r.cuisines.slice(0, 3).join(' · ')}</p>
+          )}
+
+          {/* Stats row */}
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-0.5">
+              <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
+              <span className="text-xs font-black text-gray-800">{r.rating.toFixed(1)}</span>
+              {r.totalRatings > 0 && <span className="text-[10px] text-gray-400 ml-0.5">({r.totalRatings})</span>}
+            </div>
+            <div className="w-1 h-1 rounded-full bg-gray-200" />
+            <div className="flex items-center gap-0.5 text-[11px] text-gray-500">
+              <Clock className="w-3 h-3 text-orange-400" />
+              <span className="font-bold text-gray-700">{r.avgPrepTimeMinutes}</span>min
+            </div>
+            {r.distanceKm != null && (
+              <>
+                <div className="w-1 h-1 rounded-full bg-gray-200" />
+                <div className="flex items-center gap-0.5 text-[11px] text-gray-500">
+                  <MapPin className="w-3 h-3 text-blue-400" />
+                  <span className="font-bold text-gray-700">{r.distanceKm}km</span>
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* Address */}
+          {r.address?.city && (
+            <p className="text-[10px] text-gray-400 mt-1.5 truncate">{[r.address.street, r.address.city].filter(Boolean).join(', ')}</p>
+          )}
+        </div>
+      </div>
+    </Link>
+  );
+}
 
 export default function TripPage() {
-  const {
-    selectedRoute, fromCity, toCity, userLocation,
-    setRoute, setFromCity, setToCity, setUserLocation, swapCities,
-  } = useTripStore();
-
+  const { selectedRoute, fromCity, toCity, userLocation, setRoute, setFromCity, setToCity, setUserLocation, swapCities } = useTripStore();
   const { data: routes } = useRoutes();
   const [sort, setSort] = useState<SortKey>('default');
   const [foodFilter, setFoodFilter] = useState<FoodFilter>('all');
   const [openOnly, setOpenOnly] = useState(false);
   const [search, setSearch] = useState('');
-  const [locState, setLocState] = useState<LocationState>('idle');
+  const [locState, setLocState] = useState<LocState>('idle');
+  const [showSearch, setShowSearch] = useState(false);
 
   useEffect(() => {
     if (routes?.length && !selectedRoute) {
-      const r = routes[0];
-      setRoute(r); setFromCity(r.fromCity); setToCity(r.toCity);
+      const r = routes[0]; setRoute(r); setFromCity(r.fromCity); setToCity(r.toCity);
     }
   }, [routes]);
 
   useEffect(() => {
-    if (userLocation) setLocState('granted');
-  }, []);
+    if (selectedRoute) {
+      if (!fromCity) setFromCity(selectedRoute.fromCity);
+      if (!toCity) setToCity(selectedRoute.toCity);
+    }
+  }, [selectedRoute]);
+
+  useEffect(() => { if (userLocation) setLocState('granted'); }, []);
 
   const { data, isLoading, refetch } = useRestaurantsByRoute({
     routeId: selectedRoute?._id || '',
@@ -64,19 +125,17 @@ export default function TripPage() {
     if (!navigator.geolocation) { setLocState('unavailable'); return; }
     setLocState('requesting');
     navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
-        setLocState('granted');
-        setTimeout(() => refetch(), 150);
-      },
-      (err) => {
-        setLocState(err.code === err.PERMISSION_DENIED ? 'denied' : 'unavailable');
-      },
+      pos => { setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude }); setLocState('granted'); setTimeout(() => refetch(), 150); },
+      err => setLocState(err.code === err.PERMISSION_DENIED ? 'denied' : 'unavailable'),
       { timeout: 10000, maximumAge: 60000 }
     );
   }, [setUserLocation, refetch]);
 
   const waypoints = selectedRoute?.waypoints || [];
+  const cityOptions = waypoints.length > 0
+    ? waypoints.map(w => w.name)
+    : selectedRoute ? [selectedRoute.fromCity, selectedRoute.toCity].filter(Boolean) : [];
+
   let restaurants: Restaurant[] = data?.restaurants || [];
   if (foodFilter !== 'all') restaurants = restaurants.filter(r => r.foodType === foodFilter);
   if (openOnly) restaurants = restaurants.filter(r => r.isOpen);
@@ -89,304 +148,242 @@ export default function TripPage() {
   if (sort === 'prepTime') restaurants = [...restaurants].sort((a, b) => a.avgPrepTimeMinutes - b.avgPrepTimeMinutes);
 
   const aheadCount = restaurants.filter(r => r.position === 'ahead').length;
-  const totalAll   = data?.restaurants?.length ?? 0;
-  const hasFilters = foodFilter !== 'all' || openOnly || !!search || sort !== 'default';
+  const hasFilters = foodFilter !== 'all' || openOnly || sort !== 'default' || !!search;
+
+  const toggleChip = (id: string) => {
+    if (id === 'open')     setOpenOnly(v => !v);
+    else if (id === 'veg') setFoodFilter(foodFilter === 'veg' ? 'all' : 'veg');
+    else if (id === 'non-veg') setFoodFilter(foodFilter === 'non-veg' ? 'all' : 'non-veg');
+    else if (id === 'rating')   setSort(sort === 'rating' ? 'default' : 'rating');
+    else if (id === 'distance') setSort(sort === 'distance' ? 'default' : 'distance');
+    else if (id === 'prepTime') setSort(sort === 'prepTime' ? 'default' : 'prepTime');
+  };
+
+  const isChipActive = (id: string) => {
+    if (id === 'open') return openOnly;
+    if (id === 'veg') return foodFilter === 'veg';
+    if (id === 'non-veg') return foodFilter === 'non-veg';
+    if (id === 'rating') return sort === 'rating';
+    if (id === 'distance') return sort === 'distance';
+    if (id === 'prepTime') return sort === 'prepTime';
+    return false;
+  };
 
   return (
-    <div className="min-h-screen bg-[#F5F6FA] pb-24">
+    <div className="min-h-screen pb-24" style={{ background: '#F0F2F5' }}>
 
-      {/* ── STICKY HEADER ── */}
-      <div className="sticky top-0 z-30 bg-[#0C0F1A] shadow-2xl">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-12 pb-5">
+      {/* ══ HEADER ══ */}
+      <div>
+        {/* Dark top bar */}
+        <div className="px-4 pt-4 pb-3" style={{ background: 'linear-gradient(160deg,#0D1117 0%,#1a1a2e 60%,#16213e 100%)' }}>
 
-          <div className="flex items-center justify-between mb-4">
-            <h1 className="text-white font-extrabold text-xl">Find Food on Route</h1>
-            {/* Location pill */}
-            <button
-              onClick={locState === 'denied' ? undefined : requestLocation}
-              disabled={locState === 'requesting'}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border transition-all ${
-                locState === 'granted'    ? 'border-emerald-400/50 text-emerald-300 bg-emerald-500/10' :
-                locState === 'denied'     ? 'border-red-400/50 text-red-300 bg-red-500/10 cursor-default' :
-                locState === 'requesting' ? 'border-amber-400/50 text-amber-300 bg-amber-500/10' :
-                'border-white/15 text-white/60 bg-white/5 hover:bg-white/10'
+          {/* Route name + location btn */}
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded-lg bg-orange-500/20 flex items-center justify-center">
+                <span className="text-sm">🛣️</span>
+              </div>
+              <div>
+                <p className="text-white font-extrabold text-base leading-none">Highway Food</p>
+                <p className="text-white/40 text-[10px] mt-0.5">
+                  {data?.route?.name || selectedRoute?.name || 'Select your route'}
+                </p>
+              </div>
+            </div>
+            <button onClick={locState === 'denied' ? undefined : requestLocation} disabled={locState === 'requesting'}
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[10px] font-bold border transition-all ${
+                locState === 'granted'    ? 'border-emerald-500/30 text-emerald-400 bg-emerald-500/10' :
+                locState === 'denied'     ? 'border-red-500/30 text-red-400 bg-red-500/10 cursor-default' :
+                locState === 'requesting' ? 'border-amber-500/30 text-amber-400 bg-amber-500/10' :
+                'border-white/15 text-white/50 bg-white/5 hover:bg-white/10'
               }`}>
-              {locState === 'requesting' ? <><Loader2 className="w-3 h-3 animate-spin" /> Locating...</> :
-               locState === 'granted'    ? <><span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> Location On</> :
-               locState === 'denied'     ? <><AlertCircle className="w-3 h-3" /> Location Denied</> :
-               <><Navigation className="w-3 h-3" /> Use My Location</>}
+              {locState === 'requesting' ? <Loader2 className="w-3 h-3 animate-spin" /> :
+               locState === 'granted'    ? <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> :
+               <Navigation className="w-3 h-3" />}
+              {locState === 'granted' ? 'GPS On' : locState === 'denied' ? 'Denied' : locState === 'requesting' ? 'Locating' : 'Location'}
             </button>
           </div>
 
-          {/* Route selector */}
+          {/* Route selector pills (multiple routes) */}
           {routes && routes.length > 1 && (
-            <div className="relative mb-3">
-              <select
-                className="w-full rounded-xl px-4 py-2.5 text-sm font-semibold border border-white/10 text-white bg-white/10 outline-none appearance-none pr-8"
-                value={selectedRoute?._id || ''}
-                onChange={e => {
-                  const r = routes.find(r => r._id === e.target.value);
-                  if (r) { setRoute(r); setFromCity(r.fromCity); setToCity(r.toCity); }
-                }}>
-                {routes.map(r => <option key={r._id} value={r._id} className="text-black bg-white">{r.name}</option>)}
-              </select>
-              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40 pointer-events-none" />
+            <div className="flex gap-2 overflow-x-auto scrollbar-hide mb-3 pb-0.5">
+              {routes.map(r => (
+                <button key={r._id} onClick={() => { setRoute(r); setFromCity(r.fromCity); setToCity(r.toCity); }}
+                  className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-bold border transition-all ${
+                    selectedRoute?._id === r._id
+                      ? 'bg-orange-500 border-orange-500 text-white'
+                      : 'border-white/15 text-white/50 bg-white/5 hover:bg-white/10'
+                  }`}>
+                  {r.fromCity} → {r.toCity}
+                </button>
+              ))}
             </div>
           )}
 
-          {/* From / To */}
-          <div className="bg-white rounded-2xl p-4 mb-3">
-            <div className="flex items-center gap-3">
-              <div className="flex flex-col items-center gap-1 flex-shrink-0">
-                <div className="w-3 h-3 rounded-full bg-emerald-500 ring-2 ring-emerald-100" />
-                <div className="w-0.5 h-5 bg-gray-200" />
-                <div className="w-3 h-3 rounded-full bg-red-500 ring-2 ring-red-100" />
-              </div>
-              <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-0 sm:gap-6">
-                <div>
-                  <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mb-0.5">From</p>
+          {/* From / To card */}
+          <div className="bg-white rounded-2xl overflow-hidden shadow-xl">
+            <div className="flex items-stretch">
+              {/* From */}
+              <div className="flex-1 px-4 py-3 border-r border-gray-100">
+                <p className="text-[9px] text-gray-400 font-black uppercase tracking-widest mb-1">From</p>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 flex-shrink-0" />
                   <select value={fromCity} onChange={e => setFromCity(e.target.value)}
-                    className="w-full text-sm font-bold text-gray-900 bg-transparent outline-none">
-                    {waypoints.map(w => <option key={w.order} value={w.name}>{w.name}</option>)}
-                  </select>
-                </div>
-                <div className="sm:hidden border-t border-gray-100 my-2" />
-                <div>
-                  <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mb-0.5">To</p>
-                  <select value={toCity} onChange={e => setToCity(e.target.value)}
-                    className="w-full text-sm font-bold text-gray-900 bg-transparent outline-none">
-                    {waypoints.map(w => <option key={w.order} value={w.name}>{w.name}</option>)}
+                    className="flex-1 text-sm font-extrabold text-gray-900 bg-transparent outline-none cursor-pointer min-w-0">
+                    {cityOptions.map(c => <option key={c} value={c}>{c}</option>)}
                   </select>
                 </div>
               </div>
+
+              {/* Swap */}
               <button onClick={swapCities}
-                className="w-9 h-9 rounded-xl bg-gray-100 hover:bg-orange-50 border border-gray-200 hover:border-orange-200 flex items-center justify-center flex-shrink-0 transition-colors">
-                <ArrowUpDown className="w-4 h-4 text-gray-600" />
+                className="px-3 flex items-center justify-center bg-gray-50 hover:bg-orange-50 transition-colors border-r border-gray-100">
+                <ArrowLeftRight className="w-4 h-4 text-orange-500" />
               </button>
-            </div>
-          </div>
 
-          <button onClick={() => refetch()} disabled={!fromCity || !toCity || isLoading}
-            className="w-full py-3 rounded-xl text-sm font-bold text-white bg-gradient-to-r from-orange-500 to-orange-400 shadow-lg shadow-orange-500/30 hover:shadow-orange-500/50 disabled:opacity-50 transition-all flex items-center justify-center gap-2">
-            {isLoading
-              ? <><Loader2 className="w-4 h-4 animate-spin" /> Searching...</>
-              : <><Search className="w-4 h-4" /> Search Restaurants</>}
-          </button>
-        </div>
-      </div>
-
-      {/* ── LOCATION DENIED BANNER ── */}
-      {locState === 'denied' && (
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4">
-          <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-start gap-3">
-            <AlertCircle className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-bold text-amber-800">Location access denied</p>
-              <p className="text-xs text-amber-600 mt-0.5">
-                To see distances and sort by nearest, allow location in your browser settings → Site permissions → Location → Allow.
-              </p>
+              {/* To */}
+              <div className="flex-1 px-4 py-3">
+                <p className="text-[9px] text-gray-400 font-black uppercase tracking-widest mb-1">To</p>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-red-500 flex-shrink-0" />
+                  <select value={toCity} onChange={e => setToCity(e.target.value)}
+                    className="flex-1 text-sm font-extrabold text-gray-900 bg-transparent outline-none cursor-pointer min-w-0">
+                    {cityOptions.map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                </div>
+              </div>
             </div>
-            <button onClick={() => { setLocState('idle'); requestLocation(); }}
-              className="flex-shrink-0 flex items-center gap-1.5 text-xs font-bold text-amber-700 bg-amber-100 hover:bg-amber-200 px-3 py-1.5 rounded-lg transition-colors">
-              <RefreshCw className="w-3 h-3" /> Retry
+
+            {/* Search button */}
+            <button onClick={() => refetch()} disabled={!fromCity || !toCity || isLoading}
+              className="w-full py-3 text-sm font-extrabold text-white flex items-center justify-center gap-2 disabled:opacity-50 transition-all"
+              style={{ background: 'linear-gradient(90deg,#FF6B35,#FF8C42)' }}>
+              {isLoading
+                ? <><Loader2 className="w-4 h-4 animate-spin" />Searching...</>
+                : <><Search className="w-4 h-4" />Search Restaurants</>}
             </button>
           </div>
         </div>
-      )}
+      </div>
 
-      {/* ── MAIN CONTENT ── */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-5">
+      {/* Filter chips — scrolls with page, not sticky */}
+      {data && (
+        <div className="bg-white border-b border-gray-100 shadow-sm">            <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide px-4 py-2.5">
+              {/* Search toggle */}
+              <button onClick={() => setShowSearch(v => !v)}
+                className={`flex-shrink-0 flex items-center gap-1.5 h-8 px-3 rounded-full text-xs font-bold border transition-all ${showSearch || search ? 'border-orange-400 text-orange-600 bg-orange-50' : 'border-gray-200 text-gray-500 bg-gray-50'}`}>
+                <Search className="w-3 h-3" />Search
+              </button>
+
+              {CHIPS.map(chip => (
+                <button key={chip.id} onClick={() => toggleChip(chip.id)}
+                  className={`flex-shrink-0 h-8 px-3 rounded-full text-xs font-bold border transition-all ${
+                    isChipActive(chip.id)
+                      ? 'border-orange-400 text-orange-600 bg-orange-50'
+                      : 'border-gray-200 text-gray-500 bg-gray-50 hover:border-gray-300'
+                  }`}>
+                  {chip.label}
+                </button>
+              ))}
+
+              {hasFilters && (
+                <button onClick={() => { setFoodFilter('all'); setSort('default'); setOpenOnly(false); setSearch(''); setShowSearch(false); }}
+                  className="flex-shrink-0 flex items-center gap-1 h-8 px-3 rounded-full text-xs font-bold border border-red-200 text-red-500 bg-red-50">
+                  <X className="w-3 h-3" />Clear
+                </button>
+              )}
+            </div>
+
+            {/* Search input */}
+            {showSearch && (
+              <div className="px-4 pb-3">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <input autoFocus value={search} onChange={e => setSearch(e.target.value)}
+                    placeholder="Restaurant name or cuisine..."
+                    className="w-full pl-9 pr-8 py-2.5 border border-gray-200 rounded-xl text-sm outline-none focus:border-orange-400 bg-gray-50 focus:bg-white transition-colors" />
+                  {search && <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2"><X className="w-4 h-4 text-gray-400" /></button>}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+      {/* ══ CONTENT ══ */}
+      <div className="px-4 pt-4">
         {isLoading ? (
-          <div className="flex flex-col items-center justify-center py-24 gap-3">
-            <Loader2 className="w-8 h-8 animate-spin text-orange-500" />
-            <p className="text-gray-400 text-sm">Finding restaurants on your route...</p>
+          <div className="flex flex-col items-center justify-center py-24 gap-4">
+            <div className="relative">
+              <div className="w-16 h-16 rounded-2xl bg-white shadow-lg flex items-center justify-center">
+                <span className="text-3xl">🛣️</span>
+              </div>
+              <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-orange-500 rounded-full flex items-center justify-center">
+                <Loader2 className="w-3.5 h-3.5 text-white animate-spin" />
+              </div>
+            </div>
+            <p className="text-gray-500 text-sm font-medium">Finding restaurants on your route...</p>
           </div>
 
         ) : data ? (
-          /* Desktop: sidebar + results | Mobile: stacked */
-          <div className="grid grid-cols-1 lg:grid-cols-[260px_1fr] gap-6">
-
-            {/* ── SIDEBAR (desktop) ── */}
-            <div className="hidden lg:block">
-              <div className="sticky top-[200px] space-y-3">
-
-                {/* Search */}
-                <div className="bg-white rounded-2xl border border-gray-100 p-4">
-                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2.5">Search</p>
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
-                    <input value={search} onChange={e => setSearch(e.target.value)}
-                      placeholder="Restaurant or cuisine..."
-                      className="w-full pl-8 pr-7 py-2 border border-gray-200 rounded-xl text-xs outline-none focus:border-orange-400 transition-colors bg-gray-50" />
-                    {search && <button onClick={() => setSearch('')} className="absolute right-2.5 top-1/2 -translate-y-1/2"><X className="w-3 h-3 text-gray-400" /></button>}
-                  </div>
-                </div>
-
-                {/* Food Type */}
-                <div className="bg-white rounded-2xl border border-gray-100 p-4">
-                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2.5">Food Type</p>
-                  <div className="space-y-1.5">
-                    {FOOD_FILTERS.map(f => (
-                      <button key={f.key} onClick={() => setFoodFilter(f.key)}
-                        className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl border-2 text-xs font-bold transition-all text-left ${foodFilter === f.key ? f.active : 'border-gray-200 text-gray-600 bg-white hover:border-gray-300'}`}>
-                        <span className="text-sm">{f.icon}</span>
-                        <span className="flex-1">{f.label}</span>
-                        {foodFilter === f.key && <span className="w-1.5 h-1.5 rounded-full bg-current" />}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Sort */}
-                <div className="bg-white rounded-2xl border border-gray-100 p-4">
-                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2.5">Sort By</p>
-                  <div className="space-y-1.5">
-                    {SORT_OPTIONS.map(s => (
-                      <button key={s.key} onClick={() => setSort(s.key)}
-                        className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl border-2 text-xs font-bold transition-all text-left ${sort === s.key ? 'border-orange-400 text-orange-600 bg-orange-50' : 'border-gray-200 text-gray-600 bg-white hover:border-gray-300'}`}>
-                        <span>{s.icon}</span>
-                        <span className="flex-1">{s.label}</span>
-                        {sort === s.key && <span className="w-1.5 h-1.5 rounded-full bg-orange-500" />}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Open Now */}
-                <div className="bg-white rounded-2xl border border-gray-100 p-4">
-                  <button onClick={() => setOpenOnly(!openOnly)}
-                    className="w-full flex items-center justify-between">
-                    <span className="flex items-center gap-2 text-xs font-bold text-gray-700">
-                      <span className={`w-2 h-2 rounded-full ${openOnly ? 'bg-emerald-500 animate-pulse' : 'bg-gray-300'}`} />
-                      Open Now Only
-                    </span>
-                    <div className={`w-9 h-5 rounded-full transition-colors relative ${openOnly ? 'bg-emerald-500' : 'bg-gray-200'}`}>
-                      <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${openOnly ? 'translate-x-4' : 'translate-x-0.5'}`} />
-                    </div>
-                  </button>
-                </div>
-
-                {/* Clear */}
-                {hasFilters && (
-                  <button onClick={() => { setFoodFilter('all'); setSort('default'); setOpenOnly(false); setSearch(''); }}
-                    className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-bold text-red-500 border border-red-200 bg-red-50 hover:bg-red-100 transition-colors">
-                    <X className="w-3 h-3" /> Clear All Filters
-                  </button>
-                )}
-
-                {/* Location prompt */}
-                {locState !== 'granted' && locState !== 'denied' && (
-                  <div className="bg-blue-50 border border-blue-100 rounded-2xl p-4">
-                    <p className="text-xs font-bold text-blue-700 mb-1">📍 Enable Location</p>
-                    <p className="text-xs text-blue-500 mb-3 leading-relaxed">See how far each restaurant is from you and sort by nearest.</p>
-                    <button onClick={requestLocation} disabled={locState === 'requesting'}
-                      className="w-full py-2 rounded-xl text-xs font-bold text-white bg-blue-500 hover:bg-blue-600 transition-colors flex items-center justify-center gap-1.5 disabled:opacity-60">
-                      {locState === 'requesting' ? <><Loader2 className="w-3 h-3 animate-spin" /> Locating...</> : <><Navigation className="w-3 h-3" /> Allow Location</>}
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* ── RESULTS ── */}
-            <div>
-              {/* Mobile filters */}
-              <div className="lg:hidden space-y-2.5 mb-4">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                  <input value={search} onChange={e => setSearch(e.target.value)}
-                    placeholder="Search restaurants or cuisines..."
-                    className="w-full pl-9 pr-8 py-2.5 border border-gray-200 rounded-xl text-sm outline-none focus:border-orange-400 bg-white transition-colors" />
-                  {search && <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2"><X className="w-4 h-4 text-gray-400" /></button>}
-                </div>
-                <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-0.5">
-                  {FOOD_FILTERS.map(f => (
-                    <button key={f.key} onClick={() => setFoodFilter(f.key)}
-                      className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold border-2 transition-all ${foodFilter === f.key ? f.active : 'border-gray-200 text-gray-600 bg-white'}`}>
-                      {f.icon} {f.label}
-                    </button>
-                  ))}
-                  <button onClick={() => setOpenOnly(!openOnly)}
-                    className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold border-2 transition-all ${openOnly ? 'border-emerald-400 text-emerald-700 bg-emerald-50' : 'border-gray-200 text-gray-600 bg-white'}`}>
-                    <span className={`w-1.5 h-1.5 rounded-full ${openOnly ? 'bg-emerald-500' : 'bg-gray-300'}`} /> Open Now
-                  </button>
-                </div>
-                <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-0.5">
-                  {SORT_OPTIONS.map(s => (
-                    <button key={s.key} onClick={() => setSort(s.key)}
-                      className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold border-2 transition-all ${sort === s.key ? 'border-orange-400 text-orange-600 bg-orange-50' : 'border-gray-200 text-gray-600 bg-white'}`}>
-                      {s.icon} {s.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Mobile location prompt */}
-              {locState !== 'granted' && locState !== 'denied' && restaurants.length > 0 && (
-                <div className="lg:hidden mb-4 bg-blue-50 border border-blue-100 rounded-xl p-3 flex items-center gap-3">
-                  <Navigation className="w-4 h-4 text-blue-500 flex-shrink-0" />
-                  <p className="text-xs text-blue-600 flex-1">Enable location to see distances & sort by nearest</p>
-                  <button onClick={requestLocation} disabled={locState === 'requesting'}
-                    className="flex-shrink-0 text-xs font-bold text-white bg-blue-500 px-3 py-1.5 rounded-lg disabled:opacity-60">
-                    {locState === 'requesting' ? '...' : 'Allow'}
-                  </button>
-                </div>
-              )}
-
-              {/* Results count */}
-              <div className="flex items-center justify-between mb-3">
-                <div>
-                  <p className="font-extrabold text-gray-900 text-sm">
-                    {restaurants.length} restaurant{restaurants.length !== 1 ? 's' : ''}
-                    {hasFilters && totalAll > restaurants.length && <span className="text-gray-400 font-normal"> of {totalAll}</span>}
-                    {aheadCount > 0 && userLocation && <span className="text-emerald-600"> · {aheadCount} ahead</span>}
-                  </p>
-                  {data.route?.name && (
-                    <p className="text-xs text-gray-400 mt-0.5 flex items-center gap-1">
-                      <MapPin className="w-3 h-3" /> {data.route.name}
-                      {userLocation && <span className="text-emerald-500 ml-1">· 📍 Distance shown</span>}
-                    </p>
+          <>
+            {/* Stats bar */}
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <p className="font-extrabold text-gray-900 text-base">
+                  {restaurants.length} {restaurants.length === 1 ? 'Restaurant' : 'Restaurants'}
+                </p>
+                <p className="text-xs text-gray-400 mt-0.5">
+                  {data.route?.name}
+                  {aheadCount > 0 && userLocation && (
+                    <span className="text-emerald-600 font-semibold ml-1.5">· {aheadCount} ahead of you ⚡</span>
                   )}
-                </div>
-                {hasFilters && (
-                  <button onClick={() => { setFoodFilter('all'); setSort('default'); setOpenOnly(false); setSearch(''); }}
-                    className="lg:hidden text-xs font-bold text-red-500 flex items-center gap-1 border border-red-200 bg-red-50 px-2.5 py-1.5 rounded-lg">
-                    <X className="w-3 h-3" /> Clear
-                  </button>
-                )}
+                </p>
               </div>
-
-              {/* Cards grid */}
-              {restaurants.length > 0 ? (
-                <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-                  {restaurants.map(r => <RestaurantCard key={r._id} restaurant={r} />)}
-                </div>
-              ) : (
-                <div className="flex flex-col items-center justify-center py-16 text-center bg-white rounded-2xl border border-gray-100">
-                  <div className="text-4xl mb-3">🔍</div>
-                  <p className="font-bold text-gray-600 text-sm mb-1">No restaurants match your filters</p>
-                  <p className="text-gray-400 text-xs mb-4">Try changing food type or removing filters</p>
-                  <button onClick={() => { setFoodFilter('all'); setSort('default'); setOpenOnly(false); setSearch(''); }}
-                    className="text-sm font-bold text-orange-500 border border-orange-200 bg-orange-50 px-4 py-2 rounded-xl hover:bg-orange-100 transition-colors">
-                    Clear Filters
-                  </button>
-                </div>
+              {locState !== 'granted' && locState !== 'denied' && (
+                <button onClick={requestLocation} disabled={locState === 'requesting'}
+                  className="flex items-center gap-1.5 text-xs font-bold text-blue-600 bg-blue-50 border border-blue-200 px-3 py-1.5 rounded-xl disabled:opacity-60">
+                  <Navigation className="w-3 h-3" />
+                  {locState === 'requesting' ? 'Locating...' : 'Enable GPS'}
+                </button>
               )}
             </div>
-          </div>
+
+            {/* Restaurant list */}
+            {restaurants.length > 0 ? (
+              <div className="space-y-3">
+                {restaurants.map(r => <RestaurantRow key={r._id} r={r} />)}
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center py-16 text-center bg-white rounded-2xl border border-gray-100">
+                <div className="text-4xl mb-3">🔍</div>
+                <p className="font-bold text-gray-700 text-sm mb-1">No restaurants match</p>
+                <p className="text-gray-400 text-xs mb-4">Try removing some filters</p>
+                <button onClick={() => { setFoodFilter('all'); setSort('default'); setOpenOnly(false); setSearch(''); }}
+                  className="text-sm font-bold text-orange-500 border border-orange-200 bg-orange-50 px-4 py-2 rounded-xl">
+                  Clear Filters
+                </button>
+              </div>
+            )}
+          </>
 
         ) : (
-          /* Initial state */
-          <div className="flex flex-col items-center justify-center py-24 text-center">
-            <div className="w-20 h-20 bg-orange-50 rounded-2xl flex items-center justify-center text-4xl mb-5">🛣️</div>
-            <p className="font-extrabold text-gray-800 text-lg mb-2">Ready to find food?</p>
-            <p className="text-gray-400 text-sm mb-6 max-w-xs">Select your route above and tap Search to see restaurants along the way.</p>
+          /* Empty state */
+          <div className="flex flex-col items-center justify-center py-20 text-center">
+            <div className="w-24 h-24 rounded-3xl flex items-center justify-center text-5xl mb-6 shadow-2xl"
+              style={{ background: 'linear-gradient(135deg,#FF6B35,#FF8C42)' }}>
+              🛣️
+            </div>
+            <p className="font-extrabold text-gray-900 text-xl mb-2">Plan your highway meal</p>
+            <p className="text-gray-400 text-sm max-w-xs leading-relaxed mb-8">
+              Select your route, set your cities, and find restaurants ready to serve you on arrival.
+            </p>
             {locState !== 'granted' && locState !== 'denied' && (
               <button onClick={requestLocation} disabled={locState === 'requesting'}
-                className="inline-flex items-center gap-2 text-sm font-bold text-white bg-gradient-to-r from-orange-500 to-orange-400 px-5 py-2.5 rounded-xl shadow-md shadow-orange-200 hover:shadow-orange-300 transition-all disabled:opacity-60">
+                className="inline-flex items-center gap-2 text-sm font-bold text-white px-6 py-3 rounded-2xl shadow-lg transition-all disabled:opacity-60"
+                style={{ background: 'linear-gradient(135deg,#FF6B35,#FF8C42)', boxShadow: '0 6px 24px rgba(255,107,53,0.4)' }}>
                 {locState === 'requesting'
-                  ? <><Loader2 className="w-4 h-4 animate-spin" /> Locating...</>
-                  : <><Navigation className="w-4 h-4" /> Allow Location for Better Results</>}
+                  ? <><Loader2 className="w-4 h-4 animate-spin" />Locating...</>
+                  : <><Navigation className="w-4 h-4" />Enable Location for Better Results</>}
               </button>
             )}
           </div>

@@ -68,6 +68,8 @@ const orderSchema = new mongoose.Schema(
     tripRoute: { type: mongoose.Schema.Types.ObjectId, ref: 'Route' },
     // Rejection reason
     rejectionReason: { type: String },
+    cancellationImages: [{ type: String }], // Cloudinary URLs for proof
+    refundId: { type: String },             // Razorpay refund_id
     // Rating (customer gives after completion)
     rating: {
       stars: { type: Number, min: 1, max: 5 },

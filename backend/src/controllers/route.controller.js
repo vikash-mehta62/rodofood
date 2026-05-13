@@ -3,7 +3,7 @@ const { successResponse, errorResponse } = require('../utils/apiResponse');
 
 exports.getAllRoutes = async (req, res, next) => {
   try {
-    const routes = await Route.find({ isActive: true }).select('name slug fromCity toCity totalDistanceKm');
+    const routes = await Route.find({ isActive: true }).select('name slug fromCity toCity totalDistanceKm waypoints');
     return successResponse(res, { routes });
   } catch (error) {
     next(error);

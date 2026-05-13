@@ -128,9 +128,9 @@ if (process.env.NODE_ENV !== 'production') {
         customSiteTitle: 'Rodo API Docs',
       })
     );
-    console.log(`Swagger UI  → http://localhost:${process.env.PORT || 5000}/api-docs`);
+    logger.info(`Swagger UI → http://localhost:${process.env.PORT || 5000}/api-docs`);
   } catch (_) {
-    console.warn('swagger-output.json not found, skipping Swagger UI. Run `npm run swagger` to generate.');
+    logger.warn('swagger-output.json not found. Run `npm run swagger` to generate.');
   }
 }
 
@@ -157,6 +157,10 @@ const start = async () => {
     logger.info(`📚 Swagger docs: http://localhost:${PORT}/api/docs`);
     logger.info(`🌍 Environment: ${process.env.NODE_ENV}`);
   });
+
+  // Start cron jobs after server is up
+  const { startCronJobs } = require('./services/cronService');
+  startCronJobs();
 };
 
 start();

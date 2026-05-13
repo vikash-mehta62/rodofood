@@ -18,10 +18,10 @@ function useLandingData() {
     queryKey: ['landing-data'],
     queryFn: async () => {
       const routesRes = await fetch(`${API}/routes`).catch(() => null);
-      if (!routesRes?.ok) return { route: null, restaurants: [], stops: [] };
+      if (!routesRes?.ok) return { route: null, restaurants: [], stops: [], coupons: [] };
       const routesData = await routesRes.json();
       const routes: any[] = routesData?.data?.routes ?? routesData?.data ?? [];
-      if (!routes.length) return { route: null, restaurants: [], stops: [] };
+      if (!routes.length) return { route: null, restaurants: [], stops: [], coupons: [] };
       const route = routes[0];
       const stops = (route.waypoints ?? [])
         .sort((a: any, b: any) => a.order - b.order)
@@ -31,9 +31,18 @@ function useLandingData() {
           emoji: idx === 0 || idx === arr.length - 1 ? '🏙️' : idx % 2 === 0 ? '🛣️' : '🍽️',
         }));
       const params = new URLSearchParams({ routeId: route._id, fromCity: route.fromCity ?? '', toCity: route.toCity ?? '' });
-      const res = await fetch(`${API}/restaurants/by-route?${params}`).catch(() => null);
-      const data = res?.ok ? await res.json() : null;
-      return { route, restaurants: (data?.data?.restaurants ?? []).slice(0, 6) as any[], stops };
+      const [restRes, couponRes] = await Promise.all([
+        fetch(`${API}/restaurants/by-route?${params}`).catch(() => null),
+        fetch(`${API}/coupons/public`).catch(() => null),
+      ]);
+      const restData = restRes?.ok ? await restRes.json() : null;
+      const couponData = couponRes?.ok ? await couponRes.json() : null;
+      return {
+        route,
+        restaurants: (restData?.data?.restaurants ?? []).slice(0, 6) as any[],
+        stops,
+        coupons: (couponData?.data?.coupons ?? []) as any[],
+      };
     },
     staleTime: 5 * 60 * 1000,
     retry: false,
@@ -46,12 +55,35 @@ const FOOD_BADGE: Record<string, { label: string; cls: string; dot: string }> = 
   both:      { label: 'Veg & Non-Veg', cls: 'text-amber-700 bg-amber-50 border-amber-200',       dot: 'bg-amber-500' },
 };
 
-const OFFERS = [
-  { id: 1, tag: '🔥 NEW USER', title: '₹50 Off', subtitle: 'On Your First Order', desc: 'Sign up and get ₹50 off on your very first pre-order. No minimum order value. Just order and save!', code: 'FIRST50', savings: 'Save ₹50', gradient: 'from-orange-600 via-orange-500 to-red-500', emoji: '🎉', expiry: 'New users only', tagBg: 'bg-red-500', savingsBg: 'bg-emerald-500' },
-  { id: 2, tag: '⚡ LIMITED', title: '20% OFF', subtitle: 'Lunch Special 12–3 PM', desc: 'Pre-order between 12 PM and 3 PM and get a flat 20% discount on your entire order.', code: 'LUNCH20', savings: 'Up to ₹80 Off', gradient: 'from-amber-500 via-yellow-500 to-amber-400', emoji: '🍛', expiry: 'Available daily', tagBg: 'bg-amber-600', savingsBg: 'bg-amber-600' },
-  { id: 3, tag: '👨‍👩‍👧 FAMILY', title: 'Family Pack', subtitle: '4 Items = Extra 15% Off', desc: 'Pre-order 4 or more items together and get an extra 15% off. Perfect for family road trips!', code: 'FAMILY15', savings: '15% Extra', gradient: 'from-violet-600 via-purple-600 to-indigo-600', emoji: '👨‍👩‍👧‍👦', expiry: 'Weekends only', tagBg: 'bg-violet-500', savingsBg: 'bg-violet-500' },
-  { id: 4, tag: '🌙 NIGHT OWL', title: 'Late Night Deal', subtitle: '10 PM – 2 AM', desc: 'Travelling late at night? Pre-order after 10 PM and get a flat ₹50 off your order.', code: 'NIGHT50', savings: 'Flat ₹50 Off', gradient: 'from-blue-700 via-blue-600 to-indigo-600', emoji: '🌙', expiry: '10 PM – 2 AM', tagBg: 'bg-blue-600', savingsBg: 'bg-blue-600' },
+const OFFER_GRADIENTS = [
+  'from-orange-600 via-orange-500 to-red-500',
+  'from-amber-500 via-yellow-500 to-amber-400',
+  'from-violet-600 via-purple-600 to-indigo-600',
+  'from-blue-700 via-blue-600 to-indigo-600',
+  'from-emerald-600 via-emerald-500 to-teal-500',
 ];
+const OFFER_EMOJIS = ['🎉', '🍛', '👨‍👩‍👧‍👦', '🌙', '⚡'];
+const OFFER_TAG_BG = ['bg-red-500', 'bg-amber-600', 'bg-violet-500', 'bg-blue-600', 'bg-emerald-600'];
+
+function buildOffers(coupons: any[]) {
+  if (!coupons?.length) return [];
+  return coupons.map((c: any, i: number) => ({
+    id: c._id,
+    tag: c.discountType === 'percentage' ? `${c.discountValue}% OFF` : `₹${c.discountValue} OFF`,
+    title: c.discountType === 'percentage' ? `${c.discountValue}% OFF` : `₹${c.discountValue} Off`,
+    subtitle: c.description || (c.minOrderAmount > 0 ? `Min order ₹${c.minOrderAmount}` : 'No minimum order'),
+    desc: c.description || `Use code ${c.code} to save on your order.`,
+    code: c.code,
+    savings: c.discountType === 'percentage'
+      ? (c.maxDiscountAmount ? `Up to ₹${c.maxDiscountAmount} Off` : `${c.discountValue}% Off`)
+      : `Save ₹${c.discountValue}`,
+    gradient: OFFER_GRADIENTS[i % OFFER_GRADIENTS.length],
+    emoji: OFFER_EMOJIS[i % OFFER_EMOJIS.length],
+    expiry: new Date(c.validUntil).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }),
+    tagBg: OFFER_TAG_BG[i % OFFER_TAG_BG.length],
+    savingsBg: 'bg-emerald-500',
+  }));
+}
 
 const TESTIMONIALS = [
   { name: 'Rahul Sharma', rating: 5, text: 'Absolutely brilliant! My food was ready by the time I arrived. Did not wait even a minute.' },
@@ -189,6 +221,8 @@ export default function LandingPage() {
   const route       = landingData?.route;
   const routeStops  = landingData?.stops ?? [];
   const restaurants = landingData?.restaurants ?? [];
+  const coupons     = landingData?.coupons ?? [];
+  const OFFERS      = buildOffers(coupons); // dynamic from DB
   const routeLabel  = route ? `${route.fromCity} ↔ ${route.toCity}` : 'Highway';
   const routeFrom   = route?.fromCity ?? '';
   const routeTo     = route?.toCity ?? '';
@@ -228,10 +262,10 @@ export default function LandingPage() {
           style={{ animation: 'marquee 30s linear infinite' }}>
           {Array.from({ length: 6 }).map((_, i) => (
             <span key={i} className="flex items-center gap-12 px-8">
-              <span>🎉 ₹50 Off First Order — FIRST50</span>
-              <span>⚡ Lunch 20% OFF — LUNCH20</span>
-              <span>🌙 Night ₹50 Off — NIGHT50</span>
-              <span>👨‍👩‍👧 Family 15% Off — FAMILY15</span>
+              {OFFERS.length > 0
+                ? OFFERS.map(o => <span key={o.code}>🎉 {o.title} — {o.code}</span>)
+                : <span>🛣️ Pre-order highway food · Ready when you arrive</span>
+              }
             </span>
           ))}
         </div>
@@ -301,7 +335,7 @@ export default function LandingPage() {
                 <span className="text-xl">🎉</span>
                 <div className="text-left">
                   <p className="text-emerald-300 font-bold text-sm">{t.firstOffer}</p>
-                  <p className="text-emerald-400/70 text-xs">Code: <span className="font-bold text-emerald-300">FIRST50</span></p>
+                  <p className="text-emerald-400/70 text-xs">Code: <span className="font-bold text-emerald-300">{OFFERS[0]?.code || 'PREORDER'}</span></p>
                 </div>
               </div>
               <div className="flex flex-col sm:flex-row gap-3 justify-center lg:justify-start mb-10">
@@ -407,7 +441,12 @@ export default function LandingPage() {
             <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center text-2xl flex-shrink-0">🎉</div>
             <div>
               <p className="text-white font-extrabold text-base sm:text-lg">₹50 Off on Your First Order!</p>
-              <p className="text-orange-100 text-xs sm:text-sm">Sign up today and get ₹50 off your first pre-order. Use code <span className="font-bold">FIRST50</span>.</p>
+              <p className="text-orange-100 text-xs sm:text-sm">
+                {OFFERS[0]
+                  ? <>Use code <span className="font-bold">{OFFERS[0].code}</span> — {OFFERS[0].title} on your first pre-order.</>
+                  : <>Sign up and start pre-ordering highway food today.</>
+                }
+              </p>
             </div>
           </div>
           <div className="flex items-center gap-4 flex-shrink-0">
@@ -531,7 +570,8 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* OFFERS */}
+      {/* OFFERS — only show if coupons exist in DB */}
+      {OFFERS.length > 0 && (
       <section id="offers" className="py-20 px-4 sm:px-6 lg:px-8 bg-white">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-14">
@@ -578,6 +618,7 @@ export default function LandingPage() {
           </div>
         </div>
       </section>
+      )} {/* end OFFERS conditional */}
 
       {/* ROUTE MAP */}
       <section id="route" className="py-20 px-4 sm:px-6 lg:px-8 bg-gray-50">
@@ -693,7 +734,12 @@ export default function LandingPage() {
               </p>
               <div className="inline-flex items-center gap-2 rounded-xl px-4 py-2.5 mb-8 border border-emerald-500/30 bg-emerald-500/10">
                 <Gift className="w-4 h-4 text-emerald-400" />
-                <span className="text-emerald-300 text-sm">Code <span className="font-extrabold">FIRST50</span> — ₹50 off on your first order!</span>
+                <span className="text-emerald-300 text-sm">
+                  {OFFERS[0]
+                    ? <>Code <span className="font-extrabold">{OFFERS[0].code}</span> — {OFFERS[0].title} on your first order!</>
+                    : <>Pre-order highway food · Ready when you arrive</>
+                  }
+                </span>
               </div>
               <div className="flex flex-col sm:flex-row gap-3">
                 <Link href="/login">
@@ -749,9 +795,10 @@ export default function LandingPage() {
             <div>
               <p className="font-bold text-white mb-4 text-xs uppercase tracking-wider">Active Offers</p>
               <div className="space-y-2.5">
-                {['FIRST50', 'LUNCH20', 'NIGHT50', 'FAMILY15'].map(c => (
-                  <p key={c} className="text-sm text-gray-500 font-mono">{c}</p>
-                ))}
+                {OFFERS.length > 0
+                  ? OFFERS.map(c => <p key={c.code} className="text-sm text-gray-500 font-mono">{c.code}</p>)
+                  : <p className="text-sm text-gray-500">No active offers</p>
+                }
               </div>
             </div>
             <div>

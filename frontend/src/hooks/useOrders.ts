@@ -60,8 +60,8 @@ export const useRestaurantOrders = (params?: { status?: string; date?: string })
 export const useUpdateOrderStatus = () => {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, status, rejectionReason }: { id: string; status: string; rejectionReason?: string }) =>
-      api.patch(`/orders/restaurant/${id}/status`, { status, rejectionReason }),
+    mutationFn: ({ id, status, rejectionReason, cancellationImages }: { id: string; status: string; rejectionReason?: string; cancellationImages?: string[] }) =>
+      api.patch(`/orders/restaurant/${id}/status`, { status, rejectionReason, cancellationImages }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['restaurant-orders'] }),
   });
 };

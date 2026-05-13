@@ -5,6 +5,7 @@ import { MapPin, ArrowRight, Star, Clock, ChevronRight, ShoppingBag, Utensils, S
 import { useAuthStore } from '@/store/authStore';
 import { useRoutes, useRestaurantsByRoute } from '@/hooks/useRestaurants';
 import { useMyOrders } from '@/hooks/useOrders';
+import { useActiveCoupons } from '@/hooks/useCms';
 import { useTripStore } from '@/store/tripStore';
 import BottomNav from '@/components/shared/BottomNav';
 import RestaurantCard from '@/components/customer/RestaurantCard';
@@ -21,7 +22,6 @@ const GREETING = () => {
   return { text: 'Good Evening', emoji: '🌙' };
 };
 
-// Zomato-style "What's on your mind" categories
 const FOOD_CATEGORIES = [
   { emoji: '🍛', label: 'Thali' },
   { emoji: '🥣', label: 'Poha' },
@@ -33,12 +33,20 @@ const FOOD_CATEGORIES = [
   { emoji: '🥛', label: 'Lassi' },
 ];
 
-// Offer banners (Zomato-style)
-const OFFERS = [
-  { bg: 'linear-gradient(135deg,#FF6B35,#FF3D00)', emoji: '🎉', title: '₹50 Off First Order', sub: 'New users only', code: 'FIRST50' },
-  { bg: 'linear-gradient(135deg,#F59E0B,#D97706)', emoji: '🍛', title: '20% OFF Lunch', sub: '12 PM – 3 PM daily', code: 'LUNCH20' },
-  { bg: 'linear-gradient(135deg,#1D4ED8,#1E3A8A)', emoji: '🌙', title: '₹50 Off Night', sub: '10 PM – 2 AM', code: 'NIGHT50' },
+// Fallback offers if no coupons in DB
+const FALLBACK_OFFERS = [
+  { bg: 'linear-gradient(135deg,#FF6B35,#FF3D00)', emoji: '🎉', title: 'Pre-Order & Save', sub: 'Order before you arrive', code: '' },
+  { bg: 'linear-gradient(135deg,#1D4ED8,#1E3A8A)', emoji: '🛣️', title: 'Highway Fresh Food', sub: 'Ready when you arrive', code: '' },
 ];
+
+const OFFER_GRADIENTS = [
+  'linear-gradient(135deg,#FF6B35,#FF3D00)',
+  'linear-gradient(135deg,#F59E0B,#D97706)',
+  'linear-gradient(135deg,#1D4ED8,#1E3A8A)',
+  'linear-gradient(135deg,#7C3AED,#5B21B6)',
+  'linear-gradient(135deg,#059669,#047857)',
+];
+const OFFER_EMOJIS = ['🎉', '🍛', '🌙', '⚡', '🎁'];
 
 const STATUS_CFG: Record<string, { label: string; color: string; dot: string }> = {
   pending:   { label: 'Order Placed',   color: 'text-yellow-600 bg-yellow-50 border-yellow-200', dot: 'bg-yellow-400' },
@@ -122,6 +130,7 @@ export default function HomePage() {
   const { user } = useAuthStore();
   const { data: routes } = useRoutes();
   const { data: orders } = useMyOrders();
+  const { data: liveCoupons } = useActiveCoupons();
   const { selectedRoute, fromCity, toCity, setRoute, setFromCity, setToCity } = useTripStore();
   const [offerIdx, setOfferIdx] = useState(0);
   const [filterVeg, setFilterVeg] = useState(false);
@@ -129,27 +138,40 @@ export default function HomePage() {
   const [userLoc, setUserLoc] = useState<{ lat: number; lng: number } | null>(null);
   const greeting = GREETING();
 
+  // Build offers from live DB coupons, fallback to static if none
+  const offers = liveCoupons?.length
+    ? liveCoupons.map((c, i) => ({
+        bg: OFFER_GRADIENTS[i % OFFER_GRADIENTS.length],
+        emoji: OFFER_EMOJIS[i % OFFER_EMOJIS.length],
+        title: c.discountType === 'percentage'
+          ? `${c.discountValue}% OFF`
+          : `₹${c.discountValue} Off`,
+        sub: c.description || (c.minOrderAmount > 0 ? `Min order ₹${c.minOrderAmount}` : 'No minimum order'),
+        code: c.code,
+      }))
+    : FALLBACK_OFFERS;
+
   useEffect(() => {
     if (routes?.length && !selectedRoute) {
       setRoute(routes[0]); setFromCity(routes[0].fromCity); setToCity(routes[0].toCity);
     }
   }, [routes]);
 
-  // Auto-request location on mount
   useEffect(() => {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         pos => setUserLoc({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-        () => {} // silent fail
+        () => {}
       );
     }
   }, []);
 
   // Auto-rotate offer banner
   useEffect(() => {
-    const t = setInterval(() => setOfferIdx(i => (i + 1) % OFFERS.length), 4000);
+    if (!offers.length) return;
+    const t = setInterval(() => setOfferIdx(i => (i + 1) % offers.length), 4000);
     return () => clearInterval(t);
-  }, []);
+  }, [offers.length]);
 
   const activeRoute = selectedRoute || routes?.[0];
   const activeFrom = fromCity || activeRoute?.fromCity || '';
@@ -249,24 +271,26 @@ export default function HomePage() {
 
       <div className="px-4 py-4 space-y-5">
 
-        {/* ── OFFER BANNER (Zomato-style rotating) ── */}
-        <div className="relative overflow-hidden rounded-2xl shadow-lg" style={{ background: OFFERS[offerIdx].bg }}>
+        {/* ── OFFER BANNER (rotating, from DB coupons) ── */}
+        <div className="relative overflow-hidden rounded-2xl shadow-lg" style={{ background: offers[offerIdx]?.bg }}>
           <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(circle, white 1px, transparent 1px)', backgroundSize: '16px 16px' }} />
           <div className="relative z-10 p-4 flex items-center justify-between">
             <div>
               <p className="text-white/70 text-[10px] font-black uppercase tracking-widest mb-0.5">Limited Offer</p>
-              <p className="text-white font-black text-lg leading-tight">{OFFERS[offerIdx].title}</p>
-              <p className="text-white/70 text-xs font-medium mt-0.5">{OFFERS[offerIdx].sub}</p>
-              <div className="mt-2 inline-flex items-center gap-1.5 bg-white/20 rounded-lg px-2.5 py-1">
-                <Tag className="w-3 h-3 text-white" />
-                <span className="text-white text-xs font-black tracking-wider">{OFFERS[offerIdx].code}</span>
-              </div>
+              <p className="text-white font-black text-lg leading-tight">{offers[offerIdx]?.title}</p>
+              <p className="text-white/70 text-xs font-medium mt-0.5">{offers[offerIdx]?.sub}</p>
+              {offers[offerIdx]?.code && (
+                <div className="mt-2 inline-flex items-center gap-1.5 bg-white/20 rounded-lg px-2.5 py-1">
+                  <Tag className="w-3 h-3 text-white" />
+                  <span className="text-white text-xs font-black tracking-wider">{offers[offerIdx].code}</span>
+                </div>
+              )}
             </div>
-            <span className="text-5xl flex-shrink-0">{OFFERS[offerIdx].emoji}</span>
+            <span className="text-5xl flex-shrink-0">{offers[offerIdx]?.emoji}</span>
           </div>
           {/* Dots */}
           <div className="flex justify-center gap-1.5 pb-3">
-            {OFFERS.map((_, i) => (
+            {offers.map((_, i) => (
               <button key={i} onClick={() => setOfferIdx(i)}
                 className={`rounded-full transition-all ${i === offerIdx ? 'w-4 h-1.5 bg-white' : 'w-1.5 h-1.5 bg-white/40'}`} />
             ))}

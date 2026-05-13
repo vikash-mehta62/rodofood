@@ -3,7 +3,7 @@ const MenuItem = require('../models/MenuItem');
 const Restaurant = require('../models/Restaurant');
 const Coupon = require('../models/Coupon');
 const { successResponse, errorResponse } = require('../utils/apiResponse');
-const { sendOrderConfirmationEmail } = require('../utils/emailService');
+const { sendOrderConfirmationEmail, sendNewOrderEmailToRestaurant } = require('../utils/emailService');
 const logger = require('../utils/logger');
 
 /**
@@ -50,6 +50,20 @@ exports.initiatePayment = async (req, res, next) => {
       if (!couponDoc) return errorResponse(res, 'Invalid or expired coupon', 400);
       if (subtotal < couponDoc.minOrderAmount) {
         return errorResponse(res, `Minimum order amount for this coupon is ₹${couponDoc.minOrderAmount}`, 400);
+      }
+      if (couponDoc.usageLimit && couponDoc.usageCount >= couponDoc.usageLimit) {
+        return errorResponse(res, 'Coupon usage limit reached', 400);
+      }
+      // Per-user limit check
+      if (couponDoc.perUserLimit) {
+        const userUsageCount = await Order.countDocuments({
+          customer: req.user._id,
+          coupon: couponDoc._id,
+          status: { $nin: ['cancelled', 'rejected'] },
+        });
+        if (userUsageCount >= couponDoc.perUserLimit) {
+          return errorResponse(res, `You have already used this coupon ${couponDoc.perUserLimit} time(s)`, 400);
+        }
       }
       if (couponDoc.discountType === 'percentage') {
         discount = (subtotal * couponDoc.discountValue) / 100;
@@ -148,12 +162,21 @@ exports.verifyPayment = async (req, res, next) => {
 
     logger.info(`Order ${order.orderNumber} created after payment ${razorpay_payment_id}`);
 
-    // Send confirmation email
+    // Send confirmation email to customer
     const customer = populated.customer;
     if (customer?.email) {
       sendOrderConfirmationEmail(customer.email, {
         order: populated,
         customerName: customer.name,
+      }).catch(() => {});
+    }
+
+    // Send new order notification to restaurant owner
+    const restaurantDoc = await require('../models/Restaurant').findById(snapshot.restaurantId).populate('owner', 'email name');
+    if (restaurantDoc?.owner?.email) {
+      sendNewOrderEmailToRestaurant(restaurantDoc.owner.email, {
+        order: populated,
+        restaurantName: restaurantDoc.name,
       }).catch(() => {});
     }
 

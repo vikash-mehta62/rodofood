@@ -3,7 +3,9 @@ const MenuItem = require('../models/MenuItem');
 const Restaurant = require('../models/Restaurant');
 const Coupon = require('../models/Coupon');
 const { successResponse, errorResponse, paginatedResponse } = require('../utils/apiResponse');
-const { sendOrderConfirmationEmail } = require('../utils/emailService');
+const { sendOrderConfirmationEmail, sendNewOrderEmailToRestaurant, sendOrderStatusEmail, sendRefundEmail } = require('../utils/emailService');
+const Razorpay = require('razorpay');
+const logger = require('../utils/logger');
 
 // ─── Customer ─────────────────────────────────────────────────────────────────
 
@@ -52,6 +54,20 @@ exports.createOrder = async (req, res, next) => {
       if (!couponDoc) return errorResponse(res, 'Invalid or expired coupon', 400);
       if (subtotal < couponDoc.minOrderAmount) {
         return errorResponse(res, `Minimum order amount for this coupon is ₹${couponDoc.minOrderAmount}`, 400);
+      }
+      if (couponDoc.usageLimit && couponDoc.usageCount >= couponDoc.usageLimit) {
+        return errorResponse(res, 'Coupon usage limit reached', 400);
+      }
+      // Per-user limit check
+      if (couponDoc.perUserLimit) {
+        const userUsageCount = await Order.countDocuments({
+          customer: req.user._id,
+          coupon: couponDoc._id,
+          status: { $nin: ['cancelled', 'rejected'] },
+        });
+        if (userUsageCount >= couponDoc.perUserLimit) {
+          return errorResponse(res, `You have already used this coupon ${couponDoc.perUserLimit} time(s)`, 400);
+        }
       }
       if (couponDoc.discountType === 'percentage') {
         discount = (subtotal * couponDoc.discountValue) / 100;
@@ -108,13 +124,21 @@ exports.createOrder = async (req, res, next) => {
     ]);
 
     // Send order confirmation email for non-online payment methods
-    // (online payment orders get email after Razorpay verification)
     if (paymentMethod !== 'online' && req.user.email) {
       await populated.populate({ path: 'customer', select: 'name email' });
       sendOrderConfirmationEmail(req.user.email, {
         order: populated,
         customerName: req.user.name,
-      }).catch(() => {}); // fire-and-forget
+      }).catch(() => {});
+    }
+
+    // Send new order notification to restaurant owner
+    const restaurantDoc = await Restaurant.findById(restaurantId).populate('owner', 'email name');
+    if (restaurantDoc?.owner?.email) {
+      sendNewOrderEmailToRestaurant(restaurantDoc.owner.email, {
+        order: populated,
+        restaurantName: restaurantDoc.name,
+      }).catch(() => {});
     }
 
     return successResponse(res, { order: populated }, 'Order placed successfully', 201);
@@ -182,17 +206,58 @@ exports.getRestaurantOrders = async (req, res, next) => {
 
 exports.updateOrderStatus = async (req, res, next) => {
   try {
-    const { status, rejectionReason } = req.body;
+    const { status, rejectionReason, cancellationImages } = req.body;
     const restaurant = await Restaurant.findOne({ owner: req.user._id });
     if (!restaurant) return errorResponse(res, 'Restaurant not found', 404);
 
     const order = await Order.findOne({ _id: req.params.id, restaurant: restaurant._id });
     if (!order) return errorResponse(res, 'Order not found', 404);
 
+    // Validate status transitions
+    const validTransitions = {
+      pending:   ['confirmed', 'rejected'],
+      confirmed: ['preparing', 'cancelled'],
+      preparing: ['ready', 'cancelled'],
+      ready:     ['completed', 'cancelled'],
+    };
+    if (validTransitions[order.status] && !validTransitions[order.status].includes(status)) {
+      return errorResponse(res, `Cannot change status from ${order.status} to ${status}`, 400);
+    }
+
+    const isCancelling = ['cancelled', 'rejected'].includes(status);
+
     order.status = status;
     if (rejectionReason) order.rejectionReason = rejectionReason;
-    order.statusHistory.push({ status, timestamp: new Date() });
+    if (cancellationImages?.length) order.cancellationImages = cancellationImages;
+    order.statusHistory.push({ status, timestamp: new Date(), note: rejectionReason || undefined });
     await order.save();
+
+    // ── Auto-refund for online paid orders when cancelled/rejected ──────────
+    let refundResult = null;
+    if (isCancelling && order.paymentMethod === 'online' && order.paymentStatus === 'paid' && order.paymentTransactionId) {
+      try {
+        const razorpay = new Razorpay({
+          key_id: process.env.RAZORPAY_KEY_ID,
+          key_secret: process.env.RAZORPAY_KEY_SECRET,
+        });
+        const refund = await razorpay.payments.refund(order.paymentTransactionId, {
+          amount: Math.round(order.totalAmount * 100), // full refund in paise
+          notes: {
+            orderId: order._id.toString(),
+            orderNumber: order.orderNumber,
+            reason: rejectionReason || `Order ${status} by restaurant`,
+          },
+        });
+        order.paymentStatus = 'refunded';
+        order.refundId = refund.id;
+        await order.save();
+        refundResult = { refundId: refund.id, amount: order.totalAmount };
+        logger.info(`Refund initiated: ${refund.id} for order ${order.orderNumber}`);
+      } catch (refundErr) {
+        logger.error(`Razorpay refund failed for order ${order.orderNumber}: ${refundErr.message}`);
+        // Don't block the cancellation — just log the error
+      }
+    }
 
     // Notify customer via socket
     const io = req.app.get('io');
@@ -201,10 +266,36 @@ exports.updateOrderStatus = async (req, res, next) => {
         orderId: order._id,
         orderNumber: order.orderNumber,
         status,
+        refund: refundResult,
       });
     }
 
-    return successResponse(res, { order }, `Order ${status}`);
+    // Send status update email to customer
+    const populatedOrder = await Order.findById(order._id)
+      .populate('customer', 'name email')
+      .populate('restaurant', 'name');
+    if (populatedOrder?.customer?.email) {
+      sendOrderStatusEmail(populatedOrder.customer.email, {
+        order: populatedOrder,
+        customerName: populatedOrder.customer.name,
+        status,
+      }).catch(() => {});
+
+      // Send refund email if refund was initiated
+      if (refundResult) {
+        sendRefundEmail(populatedOrder.customer.email, {
+          order: populatedOrder,
+          customerName: populatedOrder.customer.name,
+          refundAmount: refundResult.amount,
+          refundId: refundResult.refundId,
+        }).catch(() => {});
+      }
+    }
+
+    return successResponse(res, {
+      order,
+      refund: refundResult ? { initiated: true, refundId: refundResult.refundId, amount: refundResult.amount } : null,
+    }, `Order ${status}${refundResult ? ' — Refund initiated' : ''}`);
   } catch (error) {
     next(error);
   }
@@ -256,7 +347,33 @@ exports.cancelOrder = async (req, res, next) => {
     order.status = 'cancelled';
     order.statusHistory.push({ status: 'cancelled', timestamp: new Date(), note: 'Cancelled by customer' });
     await order.save();
-    return successResponse(res, { order }, 'Order cancelled');
+
+    // Auto-refund if online paid
+    let refundResult = null;
+    if (order.paymentMethod === 'online' && order.paymentStatus === 'paid' && order.paymentTransactionId) {
+      try {
+        const razorpay = new Razorpay({
+          key_id: process.env.RAZORPAY_KEY_ID,
+          key_secret: process.env.RAZORPAY_KEY_SECRET,
+        });
+        const refund = await razorpay.payments.refund(order.paymentTransactionId, {
+          amount: Math.round(order.totalAmount * 100),
+          notes: { orderId: order._id.toString(), reason: 'Cancelled by customer' },
+        });
+        order.paymentStatus = 'refunded';
+        order.refundId = refund.id;
+        await order.save();
+        refundResult = { refundId: refund.id, amount: order.totalAmount };
+        logger.info(`Customer cancel refund: ${refund.id} for order ${order.orderNumber}`);
+      } catch (refundErr) {
+        logger.error(`Refund failed on customer cancel: ${refundErr.message}`);
+      }
+    }
+
+    return successResponse(res, {
+      order,
+      refund: refundResult ? { initiated: true, refundId: refundResult.refundId, amount: refundResult.amount } : null,
+    }, 'Order cancelled' + (refundResult ? ' — Refund initiated' : ''));
   } catch (error) {
     next(error);
   }

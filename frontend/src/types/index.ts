@@ -145,6 +145,9 @@ export interface Order {
   paymentStatus: 'pending' | 'paid' | 'failed' | 'refunded';
   paymentTransactionId?: string;
   razorpayOrderId?: string;
+  refundId?: string;
+  rejectionReason?: string;
+  cancellationImages?: string[];
   customerLocation?: { lat: number; lng: number; distanceFromRestaurantKm?: number };
   createdAt: string;
 }

@@ -43,7 +43,7 @@ export default function CartPage() {
   const [paymentError, setPaymentError] = useState('');
 
   const subtotal = cart.getSubtotal();
-  const gstRate = 5;
+  const gstRate = 5; // estimated — actual rate applied by backend based on restaurant
   const gstAmount = Math.round(((subtotal - cart.discount) * gstRate) / 100 * 100) / 100;
   const total = subtotal - cart.discount + gstAmount;
 
@@ -162,7 +162,6 @@ export default function CartPage() {
       router.push(`/orders/${verifyRes.data.data.order._id}`);
 
     } catch (err: any) {
-      console.error(err);
       setPaymentError(err?.response?.data?.message || 'Something went wrong. Please try again.');
     } finally {
       setPaymentLoading(false);

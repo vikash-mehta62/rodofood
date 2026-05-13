@@ -3,7 +3,10 @@ const router = express.Router();
 const ctrl = require('../controllers/coupon.controller');
 const { protect, authorize, checkPortalAccess } = require('../middleware/auth');
 
-// Public validate
+// Public — active coupons for homepage display
+router.get('/public', ctrl.getPublicCoupons);
+
+// Public validate (requires auth to enforce per-user limit)
 router.post('/validate', protect, ctrl.validateCoupon);
 
 // Restaurant owner — portal access checked

@@ -129,12 +129,68 @@ export default function OrderDetailPage() {
 
         {/* Cancelled/Rejected */}
         {isCancelled && (
-          <div className="bg-red-50 border border-red-200 rounded-2xl p-4">
-            <p className="text-sm font-bold text-red-700 mb-1">
-              {order.status === 'rejected' ? '❌ Order Rejected' : '❌ Order Cancelled'}
-            </p>
-            {(order as any).rejectionReason && (
-              <p className="text-xs text-red-600">{(order as any).rejectionReason}</p>
+          <div className="space-y-3">
+            <div className="bg-red-50 border border-red-200 rounded-2xl p-4">
+              <p className="text-sm font-bold text-red-700 mb-1">
+                {order.status === 'rejected' ? '❌ Order Rejected' : '❌ Order Cancelled'}
+              </p>
+              {(order as any).rejectionReason && (
+                <p className="text-xs text-red-600">{(order as any).rejectionReason}</p>
+              )}
+            </div>
+
+            {/* Refund status card */}
+            {order.paymentMethod === 'online' && (
+              <div className={`rounded-2xl p-4 border ${
+                order.paymentStatus === 'refunded'
+                  ? 'bg-emerald-50 border-emerald-200'
+                  : 'bg-amber-50 border-amber-200'
+              }`}>
+                <div className="flex items-start gap-3">
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${
+                    order.paymentStatus === 'refunded' ? 'bg-emerald-100' : 'bg-amber-100'
+                  }`}>
+                    <span className="text-xl">{order.paymentStatus === 'refunded' ? '💰' : '⏳'}</span>
+                  </div>
+                  <div className="flex-1">
+                    <p className={`text-sm font-extrabold ${order.paymentStatus === 'refunded' ? 'text-emerald-800' : 'text-amber-800'}`}>
+                      {order.paymentStatus === 'refunded' ? 'Refund Initiated' : 'Refund Processing'}
+                    </p>
+                    <p className={`text-xs mt-0.5 ${order.paymentStatus === 'refunded' ? 'text-emerald-600' : 'text-amber-600'}`}>
+                      {order.paymentStatus === 'refunded'
+                        ? `₹${order.totalAmount.toFixed(2)} will be credited to your original payment method`
+                        : 'Your refund is being processed by Razorpay'}
+                    </p>
+                    {(order as any).refundId && (
+                      <p className="text-[10px] font-mono text-emerald-500 mt-1">
+                        Refund ID: {(order as any).refundId}
+                      </p>
+                    )}
+                    {/* Timeline */}
+                    <div className="mt-3 space-y-1.5">
+                      {[
+                        { label: 'Refund initiated by Rodofood', done: true },
+                        { label: 'Razorpay processing (1–2 days)', done: order.paymentStatus === 'refunded' },
+                        { label: 'Credited to your account (3–5 business days)', done: false },
+                      ].map((step, i) => (
+                        <div key={i} className="flex items-center gap-2">
+                          <div className={`w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0 text-[9px] font-black ${
+                            step.done ? 'bg-emerald-500 text-white' : 'bg-gray-200 text-gray-400'
+                          }`}>
+                            {step.done ? '✓' : i + 1}
+                          </div>
+                          <p className={`text-xs ${step.done ? 'text-emerald-700 font-semibold' : 'text-gray-400'}`}>
+                            {step.label}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                    <p className="text-[10px] text-gray-400 mt-2">
+                      Refunds typically appear within 3–5 business days depending on your bank/UPI provider.
+                    </p>
+                  </div>
+                </div>
+              </div>
             )}
           </div>
         )}
@@ -244,11 +300,16 @@ export default function OrderDetailPage() {
           <span className={`ml-auto text-xs font-bold px-2.5 py-1 rounded-full border ${
             order.paymentStatus === 'paid'
               ? 'text-emerald-700 bg-emerald-50 border-emerald-200'
+              : order.paymentStatus === 'refunded'
+              ? 'text-blue-700 bg-blue-50 border-blue-200'
               : order.paymentStatus === 'failed'
               ? 'text-red-700 bg-red-50 border-red-200'
               : 'text-amber-700 bg-amber-50 border-amber-200'
           }`}>
-            {order.paymentStatus === 'paid' ? '✓ Paid' : order.paymentStatus === 'failed' ? '✗ Failed' : '⏳ Pending'}
+            {order.paymentStatus === 'paid' ? '✓ Paid'
+              : order.paymentStatus === 'refunded' ? '↩ Refunded'
+              : order.paymentStatus === 'failed' ? '✗ Failed'
+              : '⏳ Pending'}
           </span>
         </div>
 

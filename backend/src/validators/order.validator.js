@@ -28,10 +28,11 @@ const updateOrderStatusSchema = Joi.object({
     .valid('confirmed', 'preparing', 'ready', 'completed', 'cancelled', 'rejected')
     .required(),
   rejectionReason: Joi.string().when('status', {
-    is: 'rejected',
-    then: Joi.required(),
+    is: Joi.valid('rejected', 'cancelled'),
+    then: Joi.optional(),
     otherwise: Joi.optional(),
   }),
+  cancellationImages: Joi.array().items(Joi.string().uri()).max(5).optional(),
 });
 
 module.exports = { createOrderSchema, updateOrderStatusSchema };

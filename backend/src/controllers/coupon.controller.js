@@ -1,4 +1,5 @@
 const Coupon = require('../models/Coupon');
+const Order = require('../models/Order');
 const { successResponse, errorResponse } = require('../utils/apiResponse');
 
 exports.validateCoupon = async (req, res, next) => {
@@ -22,6 +23,18 @@ exports.validateCoupon = async (req, res, next) => {
       return errorResponse(res, 'Coupon not valid for this restaurant', 400);
     }
 
+    // Per-user limit check
+    if (coupon.perUserLimit && req.user) {
+      const userUsageCount = await Order.countDocuments({
+        customer: req.user._id,
+        coupon: coupon._id,
+        status: { $nin: ['cancelled', 'rejected'] },
+      });
+      if (userUsageCount >= coupon.perUserLimit) {
+        return errorResponse(res, `You have already used this coupon ${coupon.perUserLimit} time(s)`, 400);
+      }
+    }
+
     let discount = 0;
     if (coupon.discountType === 'percentage') {
       discount = (orderAmount * coupon.discountValue) / 100;
@@ -34,6 +47,25 @@ exports.validateCoupon = async (req, res, next) => {
       coupon: { code: coupon.code, description: coupon.description, discountType: coupon.discountType, discountValue: coupon.discountValue },
       discount: Math.round(discount * 100) / 100,
     }, 'Coupon applied successfully');
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Public — active coupons for homepage banner display
+exports.getPublicCoupons = async (req, res, next) => {
+  try {
+    const now = new Date();
+    const coupons = await Coupon.find({
+      isActive: true,
+      validFrom: { $lte: now },
+      validUntil: { $gte: now },
+      applicableTo: 'all', // only show global coupons publicly
+    })
+      .select('code description discountType discountValue maxDiscountAmount minOrderAmount validUntil')
+      .sort({ createdAt: -1 })
+      .limit(6);
+    return successResponse(res, { coupons });
   } catch (error) {
     next(error);
   }
