@@ -1,7 +1,7 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import {
   LayoutDashboard, Store, ShoppingBag, Users,
   Tag, MapPin, FileText, LogOut, Menu, X, Shield, Bell
@@ -22,8 +22,19 @@ const NAV = [
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const { logout } = useAuthStore();
+  const router = useRouter();
+  const { logout, user, isAuthenticated } = useAuthStore();
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  useEffect(() => {
+    if (!isAuthenticated || user?.role !== 'admin') {
+      router.replace('/admin-login');
+    }
+  }, [isAuthenticated, user, router]);
+
+  const handleLogout = () => { logout(); router.push('/admin-login'); };
+
+  if (!isAuthenticated || user?.role !== 'admin') return null;
 
   const SidebarContent = () => (
     <div className="flex flex-col h-full">
@@ -58,7 +69,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       </nav>
 
       <div className="px-3 py-4 border-t border-slate-800">
-        <button onClick={() => logout()}
+        <button onClick={handleLogout}
           className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition-all">
           <LogOut className="w-5 h-5" />
           <span className="font-bold text-sm">Logout</span>

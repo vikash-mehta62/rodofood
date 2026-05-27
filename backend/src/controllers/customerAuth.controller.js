@@ -136,3 +136,76 @@ exports.changePassword = async (req, res, next) => {
     return successResponse(res, {}, 'Password changed successfully');
   } catch (error) { next(error); }
 };
+
+// Email OTP Login - Step 1: Send OTP
+exports.sendLoginOtp = async (req, res, next) => {
+  try {
+    const { email } = req.body;
+    const user = await User.findOne({ email, role: 'customer' });
+    if (!user) return errorResponse(res, 'No account found with this email. Please register.', 404);
+    if (!user.isActive) return errorResponse(res, 'Account deactivated. Please contact support.', 403);
+
+    const otp = generateEmailOTP();
+    user.resetOtp = otp;
+    user.resetOtpExpiry = new Date(Date.now() + 10 * 60 * 1000);
+    await user.save();
+
+    await sendEmailOTP(email, otp, user.name, 'Login');
+    return successResponse(res, { email }, 'OTP sent to your email.');
+  } catch (error) { next(error); }
+};
+
+// Email OTP Login - Step 2: Verify OTP & login
+exports.verifyLoginOtp = async (req, res, next) => {
+  try {
+    const { email, otp } = req.body;
+    const user = await User.findOne({ email, role: 'customer' });
+    if (!user) return errorResponse(res, 'No account found.', 404);
+    if (!user.resetOtp || user.resetOtp !== otp) return errorResponse(res, 'Invalid OTP.', 400);
+    if (user.resetOtpExpiry < new Date()) return errorResponse(res, 'OTP expired. Please request again.', 400);
+
+    user.resetOtp = undefined;
+    user.resetOtpExpiry = undefined;
+    user.lastLogin = new Date();
+    await user.save();
+
+    const token = generateToken(user._id);
+    return successResponse(res, { token, user }, 'Login successful');
+  } catch (error) { next(error); }
+};
+
+// Forgot Password - Step 1: Send OTP to email
+exports.forgotPassword = async (req, res, next) => {
+  try {
+    const { email } = req.body;
+    const user = await User.findOne({ email, role: 'customer' });
+    if (!user) return errorResponse(res, 'No account found with this email.', 404);
+
+    const { generateEmailOTP, sendEmailOTP } = require('../utils/emailService');
+    const otp = generateEmailOTP();
+    user.resetOtp = otp;
+    user.resetOtpExpiry = new Date(Date.now() + 10 * 60 * 1000); // 10 min
+    await user.save();
+
+    await sendEmailOTP(email, otp, user.name, 'Password Reset');
+    return successResponse(res, { email }, 'OTP sent to your email for password reset.');
+  } catch (error) { next(error); }
+};
+
+// Forgot Password - Step 2: Verify OTP & reset password
+exports.resetPassword = async (req, res, next) => {
+  try {
+    const { email, otp, newPassword } = req.body;
+    const user = await User.findOne({ email, role: 'customer' });
+    if (!user) return errorResponse(res, 'No account found.', 404);
+    if (!user.resetOtp || user.resetOtp !== otp) return errorResponse(res, 'Invalid OTP.', 400);
+    if (user.resetOtpExpiry < new Date()) return errorResponse(res, 'OTP expired. Please request again.', 400);
+
+    user.password = await bcrypt.hash(newPassword, 12);
+    user.resetOtp = undefined;
+    user.resetOtpExpiry = undefined;
+    await user.save();
+
+    return successResponse(res, {}, 'Password reset successfully. Please login.');
+  } catch (error) { next(error); }
+};

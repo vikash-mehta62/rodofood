@@ -28,12 +28,16 @@ const changePasswordSchema = Joi.object({
   newPassword: Joi.string().min(6).max(50).required(),
 });
 
-router.post('/register',       validate(registerSchema),  ctrl.register);
-router.post('/verify-email',   validate(verifyOtpSchema), ctrl.verifyEmailOtp);
-router.post('/resend-otp',     ctrl.resendEmailOtp);
-router.post('/login',          validate(loginSchema),     ctrl.login);
-router.get('/profile',         protect, authorize('restaurant'), checkPortalAccess, ctrl.getProfile);
-router.put('/profile',         protect, authorize('restaurant'), checkPortalAccess, ctrl.updateProfile);
-router.put('/change-password', protect, authorize('restaurant'), checkPortalAccess, validate(changePasswordSchema), ctrl.changePassword);
+router.post('/register',        validate(registerSchema),  ctrl.register);
+router.post('/verify-email',    validate(verifyOtpSchema), ctrl.verifyEmailOtp);
+router.post('/resend-otp',      ctrl.resendEmailOtp);
+router.post('/login',           validate(loginSchema),     ctrl.login);
+router.post('/send-login-otp',  validate(Joi.object({ email: Joi.string().email().required() })), ctrl.sendLoginOtp);
+router.post('/verify-login-otp',validate(Joi.object({ email: Joi.string().email().required(), otp: Joi.string().length(6).required() })), ctrl.verifyLoginOtp);
+router.post('/forgot-password', validate(Joi.object({ email: Joi.string().email().required() })), ctrl.forgotPassword);
+router.post('/reset-password',  validate(Joi.object({ email: Joi.string().email().required(), otp: Joi.string().length(6).required(), newPassword: Joi.string().min(6).required() })), ctrl.resetPassword);
+router.get('/profile',          protect, authorize('restaurant'), checkPortalAccess, ctrl.getProfile);
+router.put('/profile',          protect, authorize('restaurant'), checkPortalAccess, ctrl.updateProfile);
+router.put('/change-password',  protect, authorize('restaurant'), checkPortalAccess, validate(changePasswordSchema), ctrl.changePassword);
 
 module.exports = router;

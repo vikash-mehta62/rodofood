@@ -1,7 +1,7 @@
 'use client';
 import { useState } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   LayoutDashboard, UtensilsCrossed, ShoppingBag,
@@ -21,9 +21,15 @@ const NAV = [
 
 export default function RestaurantLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
   const qc = useQueryClient();
   const { logout } = useAuthStore();
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  const handleLogout = () => {
+    logout();
+    router.push('/landing');
+  };
 
   const { data: restaurant } = useQuery({
     queryKey: ['my-restaurant'],
@@ -90,7 +96,7 @@ export default function RestaurantLayout({ children }: { children: React.ReactNo
       {/* Logout */}
       <div className="px-3 py-4 border-t border-slate-800">
         <button
-          onClick={() => logout()}
+          onClick={handleLogout}
           className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition-all"
         >
           <LogOut className="w-5 h-5" />

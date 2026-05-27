@@ -1,7 +1,8 @@
 'use client';
 import { useState } from 'react';
-import { Loader2, Eye, EyeOff, CheckCircle, Shield } from 'lucide-react';
+import { Loader2, Eye, EyeOff, CheckCircle, Shield, ArrowLeft } from 'lucide-react';
 import { useAdminLogin } from '@/hooks/useAuth';
+import Link from 'next/link';
 
 export default function AdminLoginPage() {
   const [phone, setPhone] = useState('');
@@ -17,6 +18,11 @@ export default function AdminLoginPage() {
   return (
     <div className="min-h-screen bg-[#0C0F1A] flex items-center justify-center px-5">
       <div className="w-full max-w-sm">
+        <div className="mb-4">
+          <Link href="/landing" className="inline-flex items-center gap-2 text-sm text-gray-400 font-semibold hover:text-orange-400 transition-colors">
+            <ArrowLeft className="w-4 h-4" /> Back to Home
+          </Link>
+        </div>
         <div className="text-center mb-8">
           <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4"
             style={{ background: 'linear-gradient(135deg,#FF6B35,#FF8C42)' }}>

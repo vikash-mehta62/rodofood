@@ -1,6 +1,6 @@
 'use client';
 import { useState } from 'react';
-import { ArrowRight, Loader2, Eye, EyeOff, CheckCircle, UserPlus, Mail, RefreshCw } from 'lucide-react';
+import { ArrowRight, ArrowLeft, Loader2, Eye, EyeOff, CheckCircle, UserPlus, Mail, RefreshCw } from 'lucide-react';
 import { useCustomerRegister, useCustomerVerifyEmail, useResendCustomerOtp } from '@/hooks/useAuth';
 import Link from 'next/link';
 
@@ -35,6 +35,9 @@ export default function RegisterPage() {
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center px-5 py-10">
       <div className="w-full max-w-md">
+        <Link href="/landing" className="inline-flex items-center gap-2 text-sm text-gray-500 font-semibold hover:text-orange-500 transition-colors mb-6">
+          <ArrowLeft className="w-4 h-4" /> Back to Home
+        </Link>
         <div className="text-center mb-8">
           <div className="flex items-center justify-center gap-3 mb-4">
             <img src="/logo.jpeg" alt="Rodofood" className="w-8 h-8 rounded-lg object-cover" />

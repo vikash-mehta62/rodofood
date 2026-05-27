@@ -53,7 +53,8 @@ api.interceptors.response.use(
     if (error.response?.status === 401 && typeof window !== 'undefined') {
       const url: string = error.config?.url ?? '';
       const isPaymentRoute = url.includes('/payments/');
-      if (!isPaymentRoute) {
+      const isAuthRoute = url.includes('/login') || url.includes('/register') || url.includes('/forgot-password') || url.includes('/reset-password') || url.includes('/verify-email') || url.includes('/resend-otp');
+      if (!isPaymentRoute && !isAuthRoute) {
         localStorage.removeItem('rf_token');
         window.location.href = '/login';
       }

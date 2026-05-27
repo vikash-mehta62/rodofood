@@ -1,10 +1,16 @@
 'use client';
 import { useState } from 'react';
-import { ArrowRight, Loader2, Eye, EyeOff, CheckCircle, Store, Lock } from 'lucide-react';
+import { ArrowRight, ArrowLeft, Loader2, Eye, EyeOff, CheckCircle, Store, Lock, Mail, RefreshCw } from 'lucide-react';
 import { useCustomerLogin } from '@/hooks/useAuth';
 import Link from 'next/link';
+import api from '@/lib/axios';
+import { useAuthStore } from '@/store/authStore';
+import { useRouter } from 'next/navigation';
 
-export default function CustomerLoginPage() {
+type Tab = 'password' | 'otp';
+type OtpStep = 'email' | 'verify';
+
+function PasswordLogin() {
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [showPass, setShowPass] = useState(false);
@@ -14,6 +20,150 @@ export default function CustomerLoginPage() {
     if (phone.length !== 10 || !password) return;
     try { await login.mutateAsync({ phone, password }); } catch (_) {}
   };
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 block">Mobile Number</label>
+        <div className="flex items-center border-2 border-gray-200 rounded-xl overflow-hidden focus-within:border-orange-400 transition-colors">
+          <div className="flex items-center gap-2 px-4 py-3.5 border-r border-gray-200 bg-gray-50 flex-shrink-0">
+            <span className="text-lg">🇮🇳</span>
+            <span className="text-sm font-bold text-gray-600">+91</span>
+          </div>
+          <input type="tel" inputMode="numeric" placeholder="10-digit number"
+            value={phone} onChange={e => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+            onKeyDown={e => e.key === 'Enter' && handle()}
+            className="flex-1 px-4 py-3.5 bg-white text-base font-medium outline-none placeholder-gray-300"
+            maxLength={10} autoFocus />
+          {phone.length === 10 && <span className="pr-4 text-emerald-500"><CheckCircle className="w-5 h-5" /></span>}
+        </div>
+      </div>
+
+      <div>
+        <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 block">Password</label>
+        <div className="flex items-center border-2 border-gray-200 rounded-xl overflow-hidden focus-within:border-orange-400 transition-colors">
+          <input type={showPass ? 'text' : 'password'} placeholder="Enter your password"
+            value={password} onChange={e => setPassword(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && handle()}
+            className="flex-1 px-4 py-3.5 bg-white text-base font-medium outline-none placeholder-gray-300" />
+          <button type="button" onClick={() => setShowPass(!showPass)} className="pr-4 text-gray-400 hover:text-gray-600">
+            {showPass ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+          </button>
+        </div>
+      </div>
+
+      <button onClick={handle} disabled={phone.length !== 10 || !password || login.isPending}
+        className="w-full h-12 text-white font-bold text-sm rounded-xl flex items-center justify-center gap-2 transition-all active:scale-[0.98] disabled:opacity-40 bg-gradient-to-r from-orange-500 to-orange-400 shadow-md shadow-orange-200 hover:shadow-orange-300 disabled:shadow-none disabled:bg-none disabled:bg-gray-300">
+        {login.isPending ? <Loader2 className="w-5 h-5 animate-spin" /> : <><span>Login</span><ArrowRight className="w-4 h-4" /></>}
+      </button>
+
+      {login.isError && (
+        <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-center">
+          <p className="text-red-600 text-sm">{(login.error as any)?.response?.data?.message || 'Login failed.'}</p>
+        </div>
+      )}
+
+      <p className="text-center text-xs text-gray-400 pt-1">
+        <Link href="/forgot-password" className="text-gray-400 hover:text-orange-500 transition-colors">Forgot password?</Link>
+      </p>
+    </div>
+  );
+}
+
+function OtpLogin() {
+  const [step, setStep] = useState<OtpStep>('email');
+  const [email, setEmail] = useState('');
+  const [otp, setOtp] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const { setAuth } = useAuthStore();
+  const router = useRouter();
+
+  const sendOtp = async () => {
+    if (!email) return;
+    setLoading(true); setError('');
+    try {
+      await api.post('/customer/send-login-otp', { email });
+      setStep('verify');
+    } catch (e: any) {
+      setError(e?.response?.data?.message || 'Failed to send OTP.');
+    } finally { setLoading(false); }
+  };
+
+  const verifyOtp = async () => {
+    if (otp.length !== 6) return;
+    setLoading(true); setError('');
+    try {
+      const res = await api.post('/customer/verify-login-otp', { email, otp });
+      const { token, user } = res.data.data;
+      setAuth(user, token);
+      router.push('/home');
+    } catch (e: any) {
+      setError(e?.response?.data?.message || 'Invalid OTP.');
+    } finally { setLoading(false); }
+  };
+
+  return (
+    <div className="space-y-4">
+      {step === 'email' ? (
+        <>
+          <div>
+            <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 block">Email Address</label>
+            <input type="email" placeholder="your@email.com" value={email}
+              onChange={e => setEmail(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && sendOtp()}
+              autoFocus
+              className="w-full h-12 px-4 border-2 border-gray-200 rounded-xl outline-none text-sm font-medium focus:border-orange-400 transition-colors bg-gray-50" />
+          </div>
+
+          <button onClick={sendOtp} disabled={!email || loading}
+            className="w-full h-12 text-white font-bold text-sm rounded-xl flex items-center justify-center gap-2 transition-all active:scale-[0.98] disabled:opacity-40 bg-gradient-to-r from-orange-500 to-orange-400 shadow-md shadow-orange-200 disabled:shadow-none disabled:bg-none disabled:bg-gray-300">
+            {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <><Mail className="w-4 h-4" /><span>Send OTP</span></>}
+          </button>
+        </>
+      ) : (
+        <>
+          <div className="bg-orange-50 border border-orange-200 rounded-xl px-4 py-3">
+            <p className="text-sm font-bold text-orange-800">OTP sent!</p>
+            <p className="text-xs text-orange-600 mt-0.5">Check your inbox at <span className="font-bold">{email}</span></p>
+          </div>
+
+          <div>
+            <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 block">Enter 6-digit OTP</label>
+            <input type="tel" inputMode="numeric" placeholder="——————"
+              value={otp} onChange={e => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+              onKeyDown={e => e.key === 'Enter' && verifyOtp()}
+              className="w-full h-14 text-center text-3xl font-extrabold tracking-[0.5em] border-2 border-gray-200 rounded-xl outline-none bg-gray-50 focus:border-orange-400 transition-colors"
+              maxLength={6} autoFocus />
+          </div>
+
+          <button onClick={verifyOtp} disabled={otp.length !== 6 || loading}
+            className="w-full h-12 text-white font-bold text-sm rounded-xl flex items-center justify-center gap-2 transition-all active:scale-[0.98] disabled:opacity-40 bg-gradient-to-r from-orange-500 to-orange-400 shadow-md shadow-orange-200 disabled:shadow-none disabled:bg-none disabled:bg-gray-300">
+            {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Verify & Login ✓'}
+          </button>
+
+          <div className="flex items-center justify-between pt-1">
+            <button type="button" onClick={() => { setStep('email'); setOtp(''); setError(''); }}
+              className="text-sm text-gray-400 hover:text-gray-700 transition-colors">← Change email</button>
+            <button type="button" onClick={sendOtp} disabled={loading}
+              className="flex items-center gap-1.5 text-sm text-orange-500 font-semibold hover:text-orange-600 disabled:opacity-60">
+              <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} /> Resend OTP
+            </button>
+          </div>
+        </>
+      )}
+
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-center">
+          <p className="text-red-600 text-sm">{error}</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default function CustomerLoginPage() {
+  const [tab, setTab] = useState<Tab>('password');
 
   return (
     <div className="min-h-screen flex flex-col lg:flex-row bg-white">
@@ -79,9 +229,12 @@ export default function CustomerLoginPage() {
 
         <div className="flex-1 flex items-center justify-center px-5 py-10 bg-gray-50">
           <div className="w-full max-w-md space-y-4">
+            <Link href="/landing" className="inline-flex items-center gap-2 text-sm text-gray-500 font-semibold hover:text-orange-500 transition-colors">
+              <ArrowLeft className="w-4 h-4" /> Back to Home
+            </Link>
 
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-7">
-              <div className="mb-7">
+              <div className="mb-6">
                 <div className="w-11 h-11 bg-orange-100 rounded-xl flex items-center justify-center mb-4">
                   <Lock className="w-5 h-5 text-orange-500" />
                 </div>
@@ -89,47 +242,23 @@ export default function CustomerLoginPage() {
                 <p className="text-gray-500 mt-1 text-sm">Login to your customer account</p>
               </div>
 
-              <div className="space-y-4 mb-5">
-                <div>
-                  <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 block">Mobile Number</label>
-                  <div className="flex items-center border-2 border-gray-200 rounded-xl overflow-hidden focus-within:border-orange-400 transition-colors">
-                    <div className="flex items-center gap-2 px-4 py-3.5 border-r border-gray-200 bg-gray-50 flex-shrink-0">
-                      <span className="text-lg">🇮🇳</span>
-                      <span className="text-sm font-bold text-gray-600">+91</span>
-                    </div>
-                    <input type="tel" inputMode="numeric" placeholder="10-digit number"
-                      value={phone} onChange={e => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
-                      onKeyDown={e => e.key === 'Enter' && handle()}
-                      className="flex-1 px-4 py-3.5 bg-white text-base font-medium outline-none placeholder-gray-300"
-                      maxLength={10} autoFocus />
-                    {phone.length === 10 && <span className="pr-4 text-emerald-500"><CheckCircle className="w-5 h-5" /></span>}
-                  </div>
-                </div>
-
-                <div>
-                  <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 block">Password</label>
-                  <div className="flex items-center border-2 border-gray-200 rounded-xl overflow-hidden focus-within:border-orange-400 transition-colors">
-                    <input type={showPass ? 'text' : 'password'} placeholder="Enter your password"
-                      value={password} onChange={e => setPassword(e.target.value)}
-                      onKeyDown={e => e.key === 'Enter' && handle()}
-                      className="flex-1 px-4 py-3.5 bg-white text-base font-medium outline-none placeholder-gray-300" />
-                    <button type="button" onClick={() => setShowPass(!showPass)} className="pr-4 text-gray-400 hover:text-gray-600">
-                      {showPass ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                    </button>
-                  </div>
-                </div>
+              {/* Tabs */}
+              <div className="flex gap-1.5 mb-6 bg-gray-100 rounded-xl p-1">
+                <button onClick={() => setTab('password')}
+                  className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-bold transition-all ${
+                    tab === 'password' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-400 hover:text-gray-600'
+                  }`}>
+                  <Lock className="w-3.5 h-3.5" /> Password
+                </button>
+                <button onClick={() => setTab('otp')}
+                  className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-bold transition-all ${
+                    tab === 'otp' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-400 hover:text-gray-600'
+                  }`}>
+                  <Mail className="w-3.5 h-3.5" /> Email OTP
+                </button>
               </div>
 
-              <button onClick={handle} disabled={phone.length !== 10 || !password || login.isPending}
-                className="w-full h-12 text-white font-bold text-sm rounded-xl flex items-center justify-center gap-2 transition-all active:scale-[0.98] disabled:opacity-40 bg-gradient-to-r from-orange-500 to-orange-400 shadow-md shadow-orange-200 hover:shadow-orange-300 disabled:shadow-none disabled:bg-none disabled:bg-gray-300">
-                {login.isPending ? <Loader2 className="w-5 h-5 animate-spin" /> : <><span>Login</span><ArrowRight className="w-4 h-4" /></>}
-              </button>
-
-              {login.isError && (
-                <div className="mt-4 bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-center">
-                  <p className="text-red-600 text-sm">{(login.error as any)?.response?.data?.message || 'Login failed.'}</p>
-                </div>
-              )}
+              {tab === 'password' ? <PasswordLogin /> : <OtpLogin />}
 
               <p className="text-center text-sm text-gray-500 mt-5">
                 New here? <Link href="/register" className="text-orange-500 font-bold hover:underline">Create account</Link>

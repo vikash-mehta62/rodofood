@@ -787,9 +787,9 @@ export default function LandingPage() {
             <div>
               <p className="font-bold text-white mb-4 text-xs uppercase tracking-wider">Platform</p>
               <div className="space-y-2.5">
-                {['Customer App', t.restaurantPartner, 'Admin Panel'].map(l => (
-                  <a key={l} href="#" className="block text-sm text-gray-500 hover:text-orange-400 transition-colors">{l}</a>
-                ))}
+                <a href="https://play.google.com/store/apps/details?id=com.rodofood" target="_blank" rel="noopener noreferrer" className="block text-sm text-gray-500 hover:text-orange-400 transition-colors">Customer App ↗</a>
+                <a href="/restaurant-register" className="block text-sm text-gray-500 hover:text-orange-400 transition-colors">{t.restaurantPartner}</a>
+                <a href="/admin-login" className="block text-sm text-gray-500 hover:text-orange-400 transition-colors">Admin Panel</a>
               </div>
             </div>
             <div>

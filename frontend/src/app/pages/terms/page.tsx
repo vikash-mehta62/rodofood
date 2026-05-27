@@ -84,6 +84,40 @@ However, we will assist in resolving disputes where possible.`,
 📞 Phone: +91 62601 44122
 📍 Address: Bhopal, Madhya Pradesh, India – 462001`,
   },
+  {
+    title: '14. Restaurant Partner Policy',
+    body: `By registering as a Restaurant Partner on Rodofood, you agree to the following:
+
+Onboarding & Listing:
+• You must provide accurate restaurant details including name, address, FSSAI license, and menu
+• Rodofood reserves the right to approve or reject any restaurant listing
+• Your restaurant will be visible to customers only after admin approval
+
+Order Management:
+• You must accept or reject incoming orders within 5 minutes
+• Once accepted, you are responsible for preparing the order on time based on customer ETA
+• Repeated cancellations or delays may result in temporary suspension
+
+Food Quality & Hygiene:
+• All food must comply with FSSAI standards
+• Rodofood may conduct periodic quality checks
+• Any hygiene complaints will be investigated and may result in delisting
+
+Payments & Commission:
+• Rodofood charges a platform commission on each completed order (as per your agreement)
+• Payments are settled weekly to your registered bank account
+• Rodofood is not responsible for cash payments made directly at the restaurant
+
+Portal Access:
+• Your restaurant portal access can be suspended by admin for policy violations
+• You must not share your login credentials with unauthorized persons
+
+Termination:
+• Either party may terminate the partnership with 7 days written notice
+• Rodofood may immediately terminate access in case of fraud, repeated violations, or legal issues
+
+For partner support: support@rodofood.in | +91 62601 44122`,
+  },
 ];
 
 export default function TermsPage() {

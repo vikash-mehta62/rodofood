@@ -188,6 +188,10 @@ export default function HomePage() {
   let restaurants = routeData?.restaurants || [];
   if (filterVeg) restaurants = restaurants.filter(r => r.foodType === 'veg');
   if (filterOpen) restaurants = restaurants.filter(r => r.isOpen);
+  // Sort by distance when GPS is available, otherwise keep default order
+  if (userLoc) {
+    restaurants = [...restaurants].sort((a, b) => (a.distanceKm ?? 9999) - (b.distanceKm ?? 9999));
+  }
   const displayRestaurants = restaurants.slice(0, 8);
 
   const activeOrder = orders?.find(o => ['pending', 'confirmed', 'preparing', 'ready'].includes(o.status));

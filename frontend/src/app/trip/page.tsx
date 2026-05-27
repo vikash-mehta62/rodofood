@@ -121,6 +121,13 @@ export default function TripPage() {
     userLng: userLocation?.lng,
   });
 
+  // Auto-refetch when cities change
+  useEffect(() => {
+    if (selectedRoute?._id && fromCity && toCity) {
+      refetch();
+    }
+  }, [fromCity, toCity]);
+
   const requestLocation = useCallback(() => {
     if (!navigator.geolocation) { setLocState('unavailable'); return; }
     setLocState('requesting');

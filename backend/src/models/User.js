@@ -33,6 +33,13 @@ const userSchema = new mongoose.Schema(
     isEmailVerified: { type: Boolean, default: false },
     emailOtp: { type: String },
     emailOtpExpiry: { type: Date },
+    // Password reset
+    resetOtp: { type: String },
+    resetOtpExpiry: { type: Date },
+    // OTP login
+    otp: { type: String },
+    otpExpiry: { type: Date },
+    otpAttempts: { type: Number, default: 0 },
   },
   { timestamps: true }
 );
@@ -45,6 +52,10 @@ userSchema.methods.toJSON = function () {
   delete obj.password;
   delete obj.emailOtp;
   delete obj.emailOtpExpiry;
+  delete obj.resetOtp;
+  delete obj.resetOtpExpiry;
+  delete obj.otp;
+  delete obj.otpExpiry;
   return obj;
 };
 
