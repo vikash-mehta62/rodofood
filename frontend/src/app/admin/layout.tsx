@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
   LayoutDashboard, Store, ShoppingBag, Users,
-  Tag, MapPin, FileText, LogOut, Menu, X, Shield, Bell
+  Tag, MapPin, FileText, LogOut, Menu, X, Shield, Bell, Loader2
 } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { cn } from '@/lib/utils';
@@ -25,16 +25,28 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const router = useRouter();
   const { logout, user, isAuthenticated } = useAuthStore();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [isChecking, setIsChecking] = useState(true);
 
   useEffect(() => {
-    if (!isAuthenticated || user?.role !== 'admin') {
-      router.replace('/admin-login');
-    }
+    // Wait a tick for Zustand to rehydrate from localStorage
+    const timer = setTimeout(() => {
+      setIsChecking(false);
+      if (!isAuthenticated || user?.role !== 'admin') {
+        router.replace('/admin-login');
+      }
+    }, 100);
+    return () => clearTimeout(timer);
   }, [isAuthenticated, user, router]);
 
   const handleLogout = () => { logout(); router.push('/admin-login'); };
 
-  if (!isAuthenticated || user?.role !== 'admin') return null;
+  if (isChecking || !isAuthenticated || user?.role !== 'admin') {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-900">
+        <Loader2 className="w-8 h-8 text-orange-500 animate-spin" />
+      </div>
+    );
+  }
 
   const SidebarContent = () => (
     <div className="flex flex-col h-full">

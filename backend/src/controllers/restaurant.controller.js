@@ -122,7 +122,7 @@ exports.getRestaurantById = async (req, res, next) => {
 exports.getMyRestaurant = async (req, res, next) => {
   try {
     const restaurant = await Restaurant.findOne({ owner: req.user._id });
-    if (!restaurant) return errorResponse(res, 'Restaurant not found', 404);
+    if (!restaurant) return successResponse(res, { restaurant: null }, 'No restaurant yet');
     return successResponse(res, { restaurant });
   } catch (error) {
     next(error);
@@ -131,16 +131,27 @@ exports.getMyRestaurant = async (req, res, next) => {
 
 exports.updateMyRestaurant = async (req, res, next) => {
   try {
-    const restaurant = await Restaurant.findOne({ owner: req.user._id });
-    if (!restaurant) return errorResponse(res, 'Restaurant not found', 404);
+    let restaurant = await Restaurant.findOne({ owner: req.user._id });
 
-    const updates = { ...req.body };
+    const updates = {};
 
-    // Handle nested address/location from flat fields
-    if (req.body['address.street']) updates.address = { ...restaurant.address, street: req.body['address.street'] };
-    if (req.body['address.city']) updates['address.city'] = req.body['address.city'];
-    if (req.body['address.state']) updates['address.state'] = req.body['address.state'];
-    if (req.body['address.pincode']) updates['address.pincode'] = req.body['address.pincode'];
+    // Basic fields
+    if (req.body.name) updates.name = req.body.name;
+    if (req.body.description !== undefined) updates.description = req.body.description;
+    if (req.body.phone) updates.phone = req.body.phone;
+    if (req.body.email !== undefined) updates.email = req.body.email;
+    if (req.body.foodType) updates.foodType = req.body.foodType;
+    if (req.body.avgPrepTimeMinutes) updates.avgPrepTimeMinutes = parseInt(req.body.avgPrepTimeMinutes);
+
+    // Handle nested address fields
+    if (req.body['address.street'] || req.body['address.city'] || req.body['address.state'] || req.body['address.pincode']) {
+      updates.address = {
+        street: req.body['address.street'] || restaurant?.address?.street || '',
+        city: req.body['address.city'] || restaurant?.address?.city || '',
+        state: req.body['address.state'] || restaurant?.address?.state || '',
+        pincode: req.body['address.pincode'] || restaurant?.address?.pincode || '',
+      };
+    }
 
     // Handle location coordinates
     if (req.body.latitude && req.body.longitude) {
@@ -148,16 +159,29 @@ exports.updateMyRestaurant = async (req, res, next) => {
         type: 'Point',
         coordinates: [parseFloat(req.body.longitude), parseFloat(req.body.latitude)],
       };
-      delete updates.latitude;
-      delete updates.longitude;
     }
 
-    // Handle cuisines array
-    if (req.body.cuisines && typeof req.body.cuisines === 'string') {
-      updates.cuisines = req.body.cuisines.split(',').map(c => c.trim()).filter(Boolean);
+    // Handle cuisines array (comes as cuisines[]=X&cuisines[]=Y from FormData)
+    if (req.body['cuisines[]']) {
+      const cuisinesArray = Array.isArray(req.body['cuisines[]']) ? req.body['cuisines[]'] : [req.body['cuisines[]']];
+      updates.cuisines = cuisinesArray.filter(Boolean);
+    } else if (req.body.cuisines) {
+      if (Array.isArray(req.body.cuisines)) {
+        updates.cuisines = req.body.cuisines.filter(Boolean);
+      } else if (typeof req.body.cuisines === 'string') {
+        updates.cuisines = req.body.cuisines.split(',').map(c => c.trim()).filter(Boolean);
+      }
     }
 
-    // Handle uploaded images (Cloudinary returns full URL in req.file.path)
+    // Handle opening hours
+    if (req.body['openingHours.open'] || req.body['openingHours.close']) {
+      updates.openingHours = {
+        open: req.body['openingHours.open'] || restaurant?.openingHours?.open || '08:00',
+        close: req.body['openingHours.close'] || restaurant?.openingHours?.close || '22:00',
+      };
+    }
+
+    // Handle uploaded images
     if (req.files?.coverImage?.[0]) {
       updates.coverImage = req.files.coverImage[0].path;
     }
@@ -165,7 +189,14 @@ exports.updateMyRestaurant = async (req, res, next) => {
       updates.images = req.files.images.map(f => f.path);
     }
 
-    const updated = await Restaurant.findByIdAndUpdate(restaurant._id, updates, { new: true, runValidators: true });
+    let updated;
+    if (!restaurant) {
+      // First time — create restaurant for this owner
+      updated = await Restaurant.create({ ...updates, owner: req.user._id });
+    } else {
+      updated = await Restaurant.findByIdAndUpdate(restaurant._id, updates, { new: true, runValidators: true });
+    }
+
     return successResponse(res, { restaurant: updated }, 'Restaurant updated');
   } catch (error) {
     next(error);

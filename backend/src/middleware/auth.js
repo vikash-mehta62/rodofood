@@ -45,17 +45,17 @@ const authorize = (...roles) => {
 
 /**
  * Check restaurant portal access — blocks restaurant owner if portalEnabled=false
+ * Note: If no restaurant exists yet (new owner), allow through so they can create one
  */
 const checkPortalAccess = async (req, res, next) => {
   try {
     if (req.user.role !== 'restaurant') return next();
     const restaurant = await Restaurant.findOne({ owner: req.user._id }).select('portalEnabled isActive');
-    if (!restaurant) return errorResponse(res, 'Restaurant not found.', 404);
+    // No restaurant yet — new owner setting up profile, allow through
+    if (!restaurant) return next();
     if (!restaurant.isActive) {
       return errorResponse(res, 'Your restaurant has been deactivated. Please contact support.', 403);
     }
-    // portalEnabled: undefined means not yet set = treat as enabled (true)
-    // Only block if explicitly set to false
     if (restaurant.portalEnabled === false) {
       return errorResponse(res, 'Your restaurant portal access has been disabled by admin. Please contact support.', 403);
     }
