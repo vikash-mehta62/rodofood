@@ -194,7 +194,8 @@ exports.updateMyRestaurant = async (req, res, next) => {
       // First time — create restaurant for this owner
       updated = await Restaurant.create({ ...updates, owner: req.user._id });
     } else {
-      updated = await Restaurant.findByIdAndUpdate(restaurant._id, updates, { new: true, runValidators: true });
+      Object.assign(restaurant, updates);
+      updated = await restaurant.save();
     }
 
     return successResponse(res, { restaurant: updated }, 'Restaurant updated');
@@ -253,11 +254,10 @@ exports.createRestaurant = async (req, res, next) => {
 
 exports.updateRestaurant = async (req, res, next) => {
   try {
-    const restaurant = await Restaurant.findByIdAndUpdate(req.params.id, req.body, {
-      new: true,
-      runValidators: true,
-    });
+    const restaurant = await Restaurant.findById(req.params.id);
     if (!restaurant) return errorResponse(res, 'Restaurant not found', 404);
+    Object.assign(restaurant, req.body);
+    await restaurant.save();
     return successResponse(res, { restaurant }, 'Restaurant updated');
   } catch (error) {
     next(error);

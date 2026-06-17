@@ -31,8 +31,10 @@ exports.createRoute = async (req, res, next) => {
 
 exports.updateRoute = async (req, res, next) => {
   try {
-    const route = await Route.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    const route = await Route.findById(req.params.id);
     if (!route) return errorResponse(res, 'Route not found', 404);
+    Object.assign(route, req.body);
+    await route.save();
     return successResponse(res, { route }, 'Route updated');
   } catch (error) {
     next(error);

@@ -55,6 +55,56 @@ const restaurantSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+restaurantSchema.pre('save', async function (next) {
+  // Only auto-assign if location has changed, is new, or routes is empty, and they haven't explicitly modified routes
+  if ((this.isModified('location') || !this.routes || this.routes.length === 0) && !this.isModified('routes')) {
+    try {
+      const Route = mongoose.model('Route');
+      const { haversineDistance } = require('../utils/routeUtils');
+
+      if (this.location && this.location.coordinates && this.location.coordinates.length >= 2) {
+        const [lng, lat] = this.location.coordinates;
+        if (lat !== undefined && lng !== undefined) {
+          const routes = await Route.find({ isActive: true });
+          let matchedRoutes = [];
+          let bestOrder = null;
+          let minDistance = Infinity;
+
+          for (const route of routes) {
+            let closestWaypoint = null;
+            let closestDist = Infinity;
+
+            route.waypoints.forEach((wp) => {
+              const dist = haversineDistance(lat, lng, wp.coordinates.lat, wp.coordinates.lng);
+              if (dist < closestDist) {
+                closestDist = dist;
+                closestWaypoint = wp;
+              }
+            });
+
+            // If the restaurant is within 50 km of any waypoint of the route
+            if (closestDist < 50) {
+              matchedRoutes.push(route._id);
+              if (closestDist < minDistance) {
+                minDistance = closestDist;
+                bestOrder = closestWaypoint.order;
+              }
+            }
+          }
+
+          if (matchedRoutes.length > 0) {
+            this.routes = matchedRoutes;
+            this.routeWaypointOrder = bestOrder;
+          }
+        }
+      }
+    } catch (err) {
+      console.error('Error auto-assigning routes to restaurant:', err);
+    }
+  }
+  next();
+});
+
 restaurantSchema.index({ location: '2dsphere' });
 restaurantSchema.index({ routes: 1 });
 restaurantSchema.index({ isOpen: 1, isActive: 1 });

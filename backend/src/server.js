@@ -152,6 +152,15 @@ const PORT = process.env.PORT || 5000;
 
 const start = async () => {
   await connectDB();
+
+  // Run restaurant route auto-assignment migration
+  try {
+    const migrateRestaurantRoutes = require('./utils/migrateRestaurantRoutes');
+    await migrateRestaurantRoutes();
+  } catch (err) {
+    logger.error(`Migration error: ${err.message}`);
+  }
+
   server.listen(PORT, () => {
     logger.info(`🚀 Rodofood API running on port ${PORT}`);
     logger.info(`📚 Swagger docs: http://localhost:${PORT}/api/docs`);

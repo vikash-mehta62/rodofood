@@ -49,6 +49,29 @@ const routeSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+routeSchema.pre('validate', function (next) {
+  if (this.name && (!this.slug || this.isModified('name'))) {
+    this.slug = this.name
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/(^-|-$)+/g, '');
+  }
+
+  if (this.isModified('waypoints') && this.waypoints && this.waypoints.length > 0) {
+    const sortedWaypoints = [...this.waypoints].sort((a, b) => a.order - b.order);
+    const coords = sortedWaypoints
+      .filter(w => w.coordinates && w.coordinates.lng !== undefined && w.coordinates.lat !== undefined)
+      .map(w => [w.coordinates.lng, w.coordinates.lat]);
+    
+    this.path = {
+      type: 'LineString',
+      coordinates: coords
+    };
+  }
+  next();
+});
+
 routeSchema.index({ path: '2dsphere' });
 
 module.exports = mongoose.model('Route', routeSchema);
