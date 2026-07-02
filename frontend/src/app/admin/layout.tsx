@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
   LayoutDashboard, Store, ShoppingBag, Users,
-  Tag, MapPin, FileText, LogOut, Menu, X, Shield, Bell, Loader2
+  Tag, MapPin, FileText, LogOut, Menu, X, Shield, Bell, Loader2, QrCode
 } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { cn } from '@/lib/utils';
@@ -17,6 +17,7 @@ const NAV = [
   { href: '/admin/notifications', icon: Bell,           label: 'Notifications' },
   { href: '/admin/coupons',      icon: Tag,             label: 'Coupons'     },
   { href: '/admin/routes',       icon: MapPin,          label: 'Routes'      },
+  { href: '/admin/qrs',          icon: QrCode,          label: 'QR Codes'    },
   { href: '/admin/cms',          icon: FileText,        label: 'CMS'         },
 ];
 

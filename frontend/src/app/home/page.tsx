@@ -1,7 +1,8 @@
 'use client';
 import Link from 'next/link';
-import { useState, useEffect } from 'react';
-import { MapPin, ArrowRight, Star, Clock, ChevronRight, ShoppingBag, Utensils, Search, Tag, Zap } from 'lucide-react';
+import { useSearchParams } from 'next/navigation';
+import { useState, useEffect, Suspense } from 'react';
+import { MapPin, ArrowRight, Star, Clock, ChevronRight, ShoppingBag, Utensils, Search, Tag, Zap, X, Calendar, Loader2 } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { useRoutes, useRestaurantsByRoute } from '@/hooks/useRestaurants';
 import { useMyOrders } from '@/hooks/useOrders';
@@ -11,6 +12,8 @@ import BottomNav from '@/components/shared/BottomNav';
 import RestaurantCard from '@/components/customer/RestaurantCard';
 import CartButton from '@/components/customer/CartButton';
 import NotificationBell from '@/components/customer/NotificationBell';
+import { useQuery } from '@tanstack/react-query';
+import api from '@/lib/axios';
 import { formatCurrency } from '@/lib/utils';
 import { resolveImage } from '@/lib/config';
 import type { Restaurant } from '@/types';
@@ -126,7 +129,7 @@ function RestaurantGridCard({ restaurant }: { restaurant: Restaurant }) {
   );
 }
 
-export default function HomePage() {
+function HomeContent() {
   const { user } = useAuthStore();
   const { data: routes } = useRoutes();
   const { data: orders } = useMyOrders();
@@ -137,6 +140,58 @@ export default function HomePage() {
   const [filterOpen, setFilterOpen] = useState(false);
   const [userLoc, setUserLoc] = useState<{ lat: number; lng: number } | null>(null);
   const greeting = GREETING();
+
+  const searchParams = useSearchParams();
+  const [scannedStop, setScannedStop] = useState<{
+    fromCity: string;
+    stopNumber?: string;
+    stopDuration?: string;
+    stopTime?: string;
+  } | null>(null);
+
+  const [liveTimeStr, setLiveTimeStr] = useState('');
+  const [liveTimeMinutes, setLiveTimeMinutes] = useState(0);
+
+  useEffect(() => {
+    const updateTime = () => {
+      const d = new Date();
+      setLiveTimeMinutes(d.getHours() * 60 + d.getMinutes());
+      let hours = d.getHours();
+      const mins = String(d.getMinutes()).padStart(2, '0');
+      const ampm = hours >= 12 ? 'PM' : 'AM';
+      hours = hours % 12;
+      hours = hours ? hours : 12;
+      setLiveTimeStr(`${String(hours).padStart(2, '0')}:${mins} ${ampm}`);
+    };
+    updateTime();
+    const interval = setInterval(updateTime, 60000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const parseTimeToMinutes = (timeStr: string): number => {
+    if (!timeStr) return 0;
+    const match = timeStr.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+    if (!match) return 0;
+    const [_, hoursStr, minutesStr, meridiemRaw] = match;
+    let hours = parseInt(hoursStr, 10);
+    const minutes = parseInt(minutesStr, 10);
+    const meridiem = meridiemRaw.toUpperCase();
+
+    if (meridiem === 'PM' && hours !== 12) hours += 12;
+    if (meridiem === 'AM' && hours === 12) hours = 0;
+
+    return hours * 60 + minutes;
+  };
+
+  const { data: routeTimelineData } = useQuery({
+    queryKey: ['route-timeline', selectedRoute?._id],
+    queryFn: async () => {
+      if (!selectedRoute?._id) return null;
+      return (await api.get(`/qrs/route/${selectedRoute._id}`)).data.data.qrs;
+    },
+    enabled: !!selectedRoute?._id,
+  });
+  const timelineStops = routeTimelineData || [];
 
   // Build offers from live DB coupons, fallback to static if none
   const offers = liveCoupons?.length
@@ -152,10 +207,40 @@ export default function HomePage() {
     : FALLBACK_OFFERS;
 
   useEffect(() => {
-    if (routes?.length && !selectedRoute) {
+    if (!routes?.length) return;
+
+    const routeIdParam = searchParams.get('routeId');
+    const fromCityParam = searchParams.get('fromCity');
+    const toCityParam = searchParams.get('toCity');
+    const stopNumParam = searchParams.get('stopNumber');
+    const stopDurParam = searchParams.get('stopDuration');
+    const stopTimeParam = searchParams.get('stopTime');
+
+    if (routeIdParam) {
+      const matchedRoute = routes.find(r => r._id === routeIdParam);
+      if (matchedRoute) {
+        setRoute(matchedRoute);
+        const resolvedFrom = fromCityParam || matchedRoute.fromCity;
+        const resolvedTo = toCityParam || matchedRoute.toCity;
+        setFromCity(resolvedFrom);
+        setToCity(resolvedTo);
+
+        if (fromCityParam) {
+          setScannedStop({
+            fromCity: resolvedFrom,
+            stopNumber: stopNumParam || undefined,
+            stopDuration: stopDurParam || undefined,
+            stopTime: stopTimeParam || undefined,
+          });
+        }
+        return;
+      }
+    }
+
+    if (!selectedRoute) {
       setRoute(routes[0]); setFromCity(routes[0].fromCity); setToCity(routes[0].toCity);
     }
-  }, [routes]);
+  }, [routes, searchParams]);
 
   useEffect(() => {
     if (navigator.geolocation) {
@@ -192,7 +277,7 @@ export default function HomePage() {
   if (userLoc) {
     restaurants = [...restaurants].sort((a, b) => (a.distanceKm ?? 9999) - (b.distanceKm ?? 9999));
   }
-  const displayRestaurants = restaurants.slice(0, 8);
+  const displayRestaurants = restaurants;
 
   const activeOrder = orders?.find(o => ['pending', 'confirmed', 'preparing', 'ready'].includes(o.status));
   const recentOrders = orders?.slice(0, 3) || [];
@@ -274,6 +359,154 @@ export default function HomePage() {
       </div>
 
       <div className="px-4 py-4 space-y-5">
+
+        {scannedStop && (
+          <div className="bg-gradient-to-r from-orange-500 to-amber-500 rounded-2xl p-4 shadow-lg text-white relative overflow-hidden">
+            <div className="absolute inset-0 opacity-[0.08]"
+              style={{ backgroundImage: 'radial-gradient(circle, #fff 1px, transparent 1px)', backgroundSize: '16px 16px' }} />
+            <div className="relative z-10 flex items-start justify-between gap-3">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="bg-white/20 text-white text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider">
+                    📍 Scanned stop
+                  </span>
+                  {scannedStop.stopNumber && (
+                    <span className="bg-amber-950/20 text-white text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider">
+                      Stop #{scannedStop.stopNumber}
+                    </span>
+                  )}
+                </div>
+                <h3 className="text-base font-black mt-1">You are at {scannedStop.fromCity}</h3>
+                <div className="flex items-center gap-4 mt-2 text-xs font-bold text-white/90 flex-wrap">
+                  {scannedStop.stopDuration && (
+                    <p className="flex items-center gap-1">
+                      <Clock className="w-3.5 h-3.5 text-white" /> Stops for: {scannedStop.stopDuration}
+                    </p>
+                  )}
+                  {scannedStop.stopTime && (
+                    <p className="flex items-center gap-1">
+                      <Calendar className="w-3.5 h-3.5 text-white" /> Arrival Time: {scannedStop.stopTime}
+                    </p>
+                  )}
+                </div>
+                <p className="text-[10px] font-semibold text-white/70 mt-2">
+                  Order from the restaurants below. Food will be delivered directly to your seat at this stop!
+                </p>
+              </div>
+              <button onClick={() => setScannedStop(null)}
+                className="w-7 h-7 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition-colors flex-shrink-0">
+                <X className="w-4 h-4 text-white" />
+              </button>
+            </div>
+          </div>
+        )}
+
+        {timelineStops.length > 0 && (
+          <div className="bg-white rounded-3xl p-5 border border-slate-100 shadow-xl space-y-4 relative overflow-hidden">
+            {/* Header */}
+            <div className="flex items-center justify-between pb-3 border-b border-slate-50 flex-wrap gap-2">
+              <div>
+                <span className="bg-orange-50 text-orange-600 text-[10px] font-black px-2.5 py-1 rounded-full uppercase tracking-wider border border-orange-100 flex items-center gap-1">
+                  🛣️ Live Trip Timeline
+                </span>
+              </div>
+              <div className="flex items-center gap-1.5 text-xs font-black text-slate-700 bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-100">
+                <Clock className="w-3.5 h-3.5 text-orange-500 animate-pulse" />
+                <span>Live Time: {liveTimeStr}</span>
+              </div>
+            </div>
+
+            {/* Timeline Tree */}
+            <div className="relative pl-6 space-y-6 before:absolute before:left-2.5 before:top-2 before:bottom-2 before:w-[2px] before:bg-slate-100">
+              {timelineStops.map((stop: any) => {
+                const stopMinutes = parseTimeToMinutes(stop.stopTime);
+                const isPassed = stopMinutes <= liveTimeMinutes;
+                const rest = stop.restaurant;
+
+                if (!rest) return null;
+
+                return (
+                  <div key={stop._id} className="relative group">
+                    {/* Circle Indicator */}
+                    <span className={`absolute -left-[22px] top-1.5 w-3 h-3 rounded-full border-2 bg-white z-10 transition-all ${
+                      isPassed 
+                        ? 'border-red-450 scale-95 shadow-[0_0_8px_rgba(239,68,68,0.2)]' 
+                        : 'border-green-500 scale-110 shadow-[0_0_12px_rgba(34,197,94,0.4)]'
+                    }`}>
+                      {!isPassed && <span className="absolute inset-0 rounded-full bg-green-500 animate-ping opacity-75" />}
+                    </span>
+
+                    {/* Content Block */}
+                    <div className={`p-3.5 rounded-2xl border transition-all ${
+                      isPassed 
+                        ? 'bg-slate-50/50 border-slate-100 opacity-60' 
+                        : 'bg-white border-slate-100 shadow-sm hover:border-orange-200 hover:shadow-md'
+                    }`}>
+                      <div className="flex items-start justify-between gap-3 flex-wrap">
+                        <div className="flex-1 min-w-[150px]">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider">
+                              Stop #{stop.stopNumber}
+                            </span>
+                            <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-md ${
+                              isPassed 
+                                ? 'bg-red-50 text-red-650 border border-red-100' 
+                                : 'bg-green-50 text-green-700 border border-green-100'
+                            }`}>
+                              {isPassed ? '● Passed' : '● Upcoming'}
+                            </span>
+                          </div>
+                          <h4 className={`text-xs font-black mt-1 ${isPassed ? 'text-slate-550 line-through' : 'text-slate-900'}`}>
+                            {stop.waypoint} Stop
+                          </h4>
+                          
+                          <div className="flex items-center gap-3 mt-1.5 text-[10px] text-slate-500 font-bold flex-wrap">
+                            <span className="flex items-center gap-0.5"><Clock className="w-3 h-3" /> Arrive: {stop.stopTime}</span>
+                            {stop.stopDuration && (
+                              <span className="flex items-center gap-0.5"><Calendar className="w-3 h-3" /> Stops: {stop.stopDuration}</span>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Restaurant Selector */}
+                        <div className="flex-shrink-0">
+                          {isPassed ? (
+                            <span className="text-[10px] font-black text-slate-400 bg-slate-100 px-3 py-2 rounded-xl block border border-slate-200">
+                              Order Closed
+                            </span>
+                          ) : (
+                            <Link href={`/restaurants/${rest._id}?routeId=${selectedRoute?._id}&fromCity=${stop.waypoint}&stopNumber=${stop.stopNumber}&stopTime=${stop.stopTime}&stopDuration=${stop.stopDuration}`}>
+                              <span className="text-[10px] font-black text-white px-3.5 py-2 rounded-xl block shadow-sm hover:opacity-90 transition-opacity cursor-pointer text-center"
+                                style={{ background: 'linear-gradient(135deg,#FF6B35,#FF8C42)' }}>
+                                Order from {rest.name}
+                              </span>
+                            </Link>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Small Restaurant details snippet */}
+                      {!isPassed && (
+                        <div className="mt-3 pt-3 border-t border-slate-50 flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-lg overflow-hidden bg-slate-50 flex-shrink-0">
+                            <img src={resolveImage(rest.coverImage) || undefined} alt={rest.name} className="w-full h-full object-cover" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-[10px] font-black text-slate-800 truncate">{rest.name}</p>
+                            <p className="text-[9px] text-slate-400 font-medium truncate">{rest.cuisines?.join(', ')}</p>
+                          </div>
+                          <div className="flex items-center gap-0.5 bg-green-50 px-1.5 py-0.5 rounded text-[9px] font-black text-green-700">
+                            ★ {rest.rating?.toFixed(1)}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* ── OFFER BANNER (rotating, from DB coupons) ── */}
         <div className="relative overflow-hidden rounded-2xl shadow-lg" style={{ background: offers[offerIdx]?.bg }}>
@@ -370,7 +603,7 @@ export default function HomePage() {
                   <RestaurantGridCard key={r._id} restaurant={r} />
                 ))}
               </div>
-              {restaurants.length > 8 && (
+              {displayRestaurants.length < restaurants.length && (
                 <Link href="/trip">
                   <div className="mt-3 bg-white border-2 border-dashed border-orange-200 rounded-2xl p-4 text-center hover:border-orange-400 transition-colors">
                     <p className="font-black text-orange-500 text-sm">+{restaurants.length - 8} more restaurants →</p>
@@ -456,5 +689,17 @@ export default function HomePage() {
       <CartButton />
       <BottomNav />
     </div>
+  );
+}
+
+export default function HomePage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <Loader2 className="w-8 h-8 text-orange-500 animate-spin" />
+      </div>
+    }>
+      <HomeContent />
+    </Suspense>
   );
 }

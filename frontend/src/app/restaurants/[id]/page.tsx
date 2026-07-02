@@ -1,18 +1,42 @@
 'use client';
-import { useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
-import { ArrowLeft, Star, Clock, MapPin, Phone, Info, Utensils, Loader2 } from 'lucide-react';
+import { useState, useEffect, Suspense } from 'react';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
+import { ArrowLeft, Star, Clock, MapPin, Phone, Info, Utensils, Loader2, X, Calendar } from 'lucide-react';
 import { useRestaurant, useMenu } from '@/hooks/useRestaurants';
 import { resolveImage } from '@/lib/config';
 import MenuItemCard from '@/components/customer/MenuItemCard';
 import CartButton from '@/components/customer/CartButton';
 
-export default function RestaurantPage() {
+function RestaurantPageContent() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const { data: restaurant, isLoading: rLoading } = useRestaurant(id);
   const { data: menu, isLoading: mLoading } = useMenu(id);
   const [activeCategory, setActiveCategory] = useState<string>('All');
+
+  const searchParams = useSearchParams();
+  const [scannedStop, setScannedStop] = useState<{
+    fromCity: string;
+    stopNumber?: string;
+    stopDuration?: string;
+    stopTime?: string;
+  } | null>(null);
+
+  useEffect(() => {
+    const fromCityParam = searchParams.get('fromCity');
+    const stopNumParam = searchParams.get('stopNumber');
+    const stopDurParam = searchParams.get('stopDuration');
+    const stopTimeParam = searchParams.get('stopTime');
+
+    if (fromCityParam) {
+      setScannedStop({
+        fromCity: fromCityParam,
+        stopNumber: stopNumParam || undefined,
+        stopDuration: stopDurParam || undefined,
+        stopTime: stopTimeParam || undefined,
+      });
+    }
+  }, [searchParams]);
 
   const categories = menu ? Object.keys(menu) : [];
   const totalItems = menu ? (Object.values(menu).flat() as any[]).length : 0;
@@ -50,6 +74,44 @@ export default function RestaurantPage() {
           )}
         </div>
       </div>
+
+      {scannedStop && (
+        <div className="mx-4 mt-4 bg-gradient-to-r from-orange-500 to-amber-500 rounded-2xl p-4 shadow-lg text-white relative overflow-hidden">
+          <div className="absolute inset-0 opacity-[0.08]"
+            style={{ backgroundImage: 'radial-gradient(circle, #fff 1px, transparent 1px)', backgroundSize: '16px 16px' }} />
+          <div className="relative z-10 flex items-start justify-between gap-3">
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className="bg-white/20 text-white text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider">
+                  📍 Scanned Stop
+                </span>
+                {scannedStop.stopNumber && (
+                  <span className="bg-amber-950/20 text-white text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider">
+                    Stop #{scannedStop.stopNumber}
+                  </span>
+                )}
+              </div>
+              <h3 className="text-sm font-black mt-1">You are ordering for {scannedStop.fromCity} stop</h3>
+              <div className="flex items-center gap-4 mt-2 text-xs font-bold text-white/90 flex-wrap">
+                {scannedStop.stopDuration && (
+                  <p className="flex items-center gap-1">
+                    <Clock className="w-3.5 h-3.5 text-white" /> Stops for: {scannedStop.stopDuration}
+                  </p>
+                )}
+                {scannedStop.stopTime && (
+                  <p className="flex items-center gap-1">
+                    <Calendar className="w-3.5 h-3.5 text-white" /> Arrival Time: {scannedStop.stopTime}
+                  </p>
+                )}
+              </div>
+            </div>
+            <button onClick={() => setScannedStop(null)}
+              className="w-7 h-7 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition-colors flex-shrink-0">
+              <X className="w-4 h-4 text-white" />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* INFO */}
       <div className="px-4 py-4 border-b border-slate-100">
@@ -153,5 +215,17 @@ export default function RestaurantPage() {
 
       <CartButton />
     </div>
+  );
+}
+
+export default function RestaurantPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex justify-center items-center min-h-screen bg-white">
+        <Loader2 className="w-8 h-8 animate-spin text-orange-500" />
+      </div>
+    }>
+      <RestaurantPageContent />
+    </Suspense>
   );
 }

@@ -1,9 +1,9 @@
 'use client';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Search, ToggleLeft, ToggleRight, Loader2, MapPin, Star,
   Phone, CheckCircle, XCircle, Store, X, Mail, Clock,
-  Utensils, ChevronRight, Eye, Users, ShoppingBag, TrendingUp
+  Utensils, ChevronRight, Eye, Users, ShoppingBag, Plus, Save
 } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/axios';
@@ -14,6 +14,208 @@ const FOOD_CFG = {
   'non-veg': { label: 'Non-Veg',    cls: 'bg-red-50 text-red-600 border-red-200' },
   both:    { label: 'Veg & Non-Veg', cls: 'bg-yellow-50 text-yellow-700 border-yellow-200' },
 };
+
+type RestaurantForm = {
+  ownerName: string;
+  ownerPhone: string;
+  name: string;
+  phone: string;
+  email: string;
+  description: string;
+  addressStreet: string;
+  addressCity: string;
+  addressState: string;
+  addressPincode: string;
+  latitude: string;
+  longitude: string;
+  foodType: 'veg' | 'non-veg' | 'both';
+  avgPrepTimeMinutes: string;
+  routes: string[];
+};
+
+const emptyRestaurantForm = (): RestaurantForm => ({
+  ownerName: '',
+  ownerPhone: '',
+  name: '',
+  phone: '',
+  email: '',
+  description: '',
+  addressStreet: '',
+  addressCity: '',
+  addressState: '',
+  addressPincode: '',
+  latitude: '',
+  longitude: '',
+  foodType: 'both',
+  avgPrepTimeMinutes: '20',
+  routes: [],
+});
+
+function AddRestaurantModal({
+  routes,
+  onClose,
+  onSubmit,
+  isPending,
+}: {
+  routes: any[];
+  onClose: () => void;
+  onSubmit: (payload: any) => void;
+  isPending: boolean;
+}) {
+  const [form, setForm] = useState<RestaurantForm>(emptyRestaurantForm);
+
+  useEffect(() => {
+    if (routes.length && form.routes.length === 0) {
+      setForm((current) => ({ ...current, routes: [routes[0]._id] }));
+    }
+  }, [routes, form.routes.length]);
+
+  const set = (key: keyof RestaurantForm, value: string) =>
+    setForm((current) => ({ ...current, [key]: value }));
+
+  const toggleRoute = (routeId: string) =>
+    setForm((current) => ({
+      ...current,
+      routes: current.routes.includes(routeId)
+        ? current.routes.filter((id) => id !== routeId)
+        : [...current.routes, routeId],
+    }));
+
+  const canSubmit =
+    form.ownerPhone.length === 10 &&
+    form.name.trim() &&
+    form.phone.length === 10 &&
+    form.addressCity.trim() &&
+    form.latitude &&
+    form.longitude &&
+    form.routes.length > 0;
+
+  const submit = () => {
+    if (!canSubmit) return;
+    onSubmit({
+      ownerName: form.ownerName,
+      ownerPhone: form.ownerPhone,
+      name: form.name,
+      phone: form.phone,
+      email: form.email || undefined,
+      description: form.description || undefined,
+      address: {
+        street: form.addressStreet,
+        city: form.addressCity,
+        state: form.addressState,
+        pincode: form.addressPincode,
+      },
+      location: {
+        type: 'Point',
+        coordinates: [Number(form.longitude), Number(form.latitude)],
+      },
+      foodType: form.foodType,
+      avgPrepTimeMinutes: Number(form.avgPrepTimeMinutes || 20),
+      routes: form.routes,
+      isOpen: true,
+      isActive: true,
+      isVerified: true,
+      portalEnabled: true,
+    });
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" style={{ backdropFilter: 'blur(4px)' }}
+      onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="bg-white rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden" style={{ maxHeight: '92vh' }}>
+        <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+          <div>
+            <h2 className="text-lg font-black text-slate-900">Add Restaurant</h2>
+            <p className="text-xs text-slate-400 font-medium mt-0.5">Assign one or more routes while creating it.</p>
+          </div>
+          <button onClick={onClose} className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center">
+            <X className="w-4 h-4 text-slate-600" />
+          </button>
+        </div>
+
+        <div className="p-5 overflow-y-auto space-y-5" style={{ maxHeight: 'calc(92vh - 132px)' }}>
+          <div className="grid sm:grid-cols-2 gap-3">
+            <AdminField label="Owner Name" value={form.ownerName} onChange={v => set('ownerName', v)} placeholder="Owner name" />
+            <AdminField label="Owner Phone *" value={form.ownerPhone} onChange={v => set('ownerPhone', v.replace(/\D/g, '').slice(0, 10))} placeholder="9876543210" />
+            <AdminField label="Restaurant Name *" value={form.name} onChange={v => set('name', v)} placeholder="Restaurant name" />
+            <AdminField label="Restaurant Phone *" value={form.phone} onChange={v => set('phone', v.replace(/\D/g, '').slice(0, 10))} placeholder="9876543210" />
+            <AdminField label="Email" value={form.email} onChange={v => set('email', v)} placeholder="restaurant@email.com" />
+            <AdminField label="Prep Time" value={form.avgPrepTimeMinutes} onChange={v => set('avgPrepTimeMinutes', v)} placeholder="20" type="number" />
+          </div>
+
+          <div>
+            <label className="text-xs font-black text-slate-500 uppercase tracking-wider mb-2 block">Description</label>
+            <textarea value={form.description} onChange={e => set('description', e.target.value)}
+              rows={3} placeholder="Short description"
+              className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl text-sm font-medium outline-none focus:border-orange-400 transition-colors resize-none" />
+          </div>
+
+          <div>
+            <p className="text-xs font-black text-slate-500 uppercase tracking-wider mb-2">Food Type</p>
+            <div className="grid grid-cols-3 gap-2">
+              {(['veg', 'non-veg', 'both'] as const).map(type => (
+                <button key={type} type="button" onClick={() => set('foodType', type)}
+                  className={`py-2.5 rounded-xl border-2 text-xs font-black transition-all ${form.foodType === type ? FOOD_CFG[type].cls : 'border-slate-200 text-slate-400 bg-white'}`}>
+                  {FOOD_CFG[type].label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="grid sm:grid-cols-2 gap-3">
+            <AdminField label="Street" value={form.addressStreet} onChange={v => set('addressStreet', v)} placeholder="NH-46, landmark" />
+            <AdminField label="City *" value={form.addressCity} onChange={v => set('addressCity', v)} placeholder="Sehore" />
+            <AdminField label="State" value={form.addressState} onChange={v => set('addressState', v)} placeholder="Madhya Pradesh" />
+            <AdminField label="Pincode" value={form.addressPincode} onChange={v => set('addressPincode', v)} placeholder="466001" />
+            <AdminField label="Latitude *" value={form.latitude} onChange={v => set('latitude', v)} placeholder="23.2000" type="number" />
+            <AdminField label="Longitude *" value={form.longitude} onChange={v => set('longitude', v)} placeholder="77.0833" type="number" />
+          </div>
+
+          <div>
+            <p className="text-xs font-black text-slate-500 uppercase tracking-wider mb-2">Routes *</p>
+            <div className="grid sm:grid-cols-2 gap-2">
+              {routes.map(route => {
+                const active = form.routes.includes(route._id);
+                return (
+                  <button key={route._id} type="button" onClick={() => toggleRoute(route._id)}
+                    className={`text-left px-3 py-2.5 rounded-xl border-2 transition-all ${active ? 'border-orange-400 bg-orange-50 text-orange-700' : 'border-slate-200 bg-white text-slate-500'}`}>
+                    <p className="text-xs font-black">{route.name}</p>
+                    <p className="text-[10px] font-medium opacity-70 mt-0.5">{route.fromCity} to {route.toCity}</p>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
+        <div className="px-5 py-4 border-t border-slate-100 flex justify-end gap-2">
+          <button onClick={onClose} className="px-4 py-2.5 rounded-xl text-xs font-black border border-slate-200 text-slate-500">Cancel</button>
+          <button onClick={submit} disabled={!canSubmit || isPending}
+            className="px-4 py-2.5 rounded-xl text-xs font-black text-white flex items-center gap-1.5 disabled:opacity-50"
+            style={{ background: 'linear-gradient(135deg,#FF6B35,#FF8C42)' }}>
+            {isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />} Save Restaurant
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AdminField({ label, value, onChange, placeholder, type = 'text' }: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+  type?: string;
+}) {
+  return (
+    <div>
+      <label className="text-xs font-black text-slate-500 uppercase tracking-wider mb-2 block">{label}</label>
+      <input type={type} value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder}
+        className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl text-sm font-medium outline-none focus:border-orange-400 transition-colors" />
+    </div>
+  );
+}
 
 function RestaurantDetailModal({ restaurant, onClose, onToggleActive, onToggleVerify, onTogglePortal }: {
   restaurant: any;
@@ -254,6 +456,21 @@ export default function AdminRestaurantsPage() {
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<'all'|'active'|'inactive'|'verified'>('all');
   const [selected, setSelected] = useState<any>(null);
+  const [showAddModal, setShowAddModal] = useState(false);
+
+  const { data: routesResponse } = useQuery({
+    queryKey: ['admin-routes'],
+    queryFn: async () => (await api.get('/routes')).data,
+  });
+  const routes = routesResponse?.data?.routes || [];
+
+  const addRestaurantMut = useMutation({
+    mutationFn: (payload: any) => api.post('/restaurants', payload),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin-restaurants'] });
+      setShowAddModal(false);
+    },
+  });
 
   const { data, isLoading } = useQuery({
     queryKey: ['admin-restaurants', search, filter],
@@ -305,6 +522,11 @@ export default function AdminRestaurantsPage() {
           <h1 className="text-2xl font-black text-slate-900">Restaurants</h1>
           <p className="text-slate-400 text-sm font-medium mt-0.5">{restaurants.length} restaurants · Click to view details</p>
         </div>
+        <button onClick={() => setShowAddModal(true)}
+          className="px-4 py-2.5 rounded-xl text-xs font-black text-white flex items-center gap-1.5 shadow-md hover:scale-[1.02] active:scale-[0.98] transition-all"
+          style={{ background: 'linear-gradient(135deg,#FF6B35,#FF8C42)' }}>
+          <Plus className="w-4 h-4" /> Add Restaurant
+        </button>
       </div>
 
       {/* Search + filter */}
@@ -425,6 +647,16 @@ export default function AdminRestaurantsPage() {
           onToggleActive={() => toggleActiveMut.mutate({ id: selected._id, isActive: selected.isActive })}
           onToggleVerify={() => toggleVerifyMut.mutate({ id: selected._id, isVerified: selected.isVerified })}
           onTogglePortal={() => togglePortalMut.mutate({ id: selected._id, portalEnabled: selected.portalEnabled !== false })}
+        />
+      )}
+
+      {/* Add Modal */}
+      {showAddModal && (
+        <AddRestaurantModal
+          routes={routes}
+          onClose={() => setShowAddModal(false)}
+          onSubmit={(payload) => addRestaurantMut.mutate(payload)}
+          isPending={addRestaurantMut.isPending}
         />
       )}
     </div>

@@ -41,7 +41,8 @@ const sendEmailOTP = async (email, otp, name = '') => {
         </div>
       `,
     });
-    logger.info(`Email OTP sent to ${email}`);
+    logger.info(`Email OTP sent to ${email} - OTP: ${otp}`);
+    console.log(`[OTP] Sent to ${email}: ${otp}`);
     return { success: true };
   } catch (error) {
     logger.error(`Email OTP failed for ${email}: ${error.message}`);

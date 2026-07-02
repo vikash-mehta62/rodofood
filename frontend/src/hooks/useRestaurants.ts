@@ -21,7 +21,33 @@ export const useRestaurantsByRoute = (params: {
   useQuery({
     queryKey: ['restaurants', 'by-route', params],
     queryFn: async () => {
-      const res = await api.get('/restaurants/by-route', { params });
+      const res = await api.get('/restaurants/by-route', {
+        params: {
+          ...params,
+          debug: process.env.NODE_ENV !== 'production' ? 'true' : undefined,
+        },
+      });
+      if (process.env.NODE_ENV !== 'production' && res.data.data.debug) {
+        console.groupCollapsed('[restaurants/by-route] visibility debug');
+        console.log('Route:', res.data.data.debug.route);
+        console.log('Counts:', res.data.data.debug.counts);
+        console.table(
+          res.data.data.debug.restaurants.map((restaurant: any) => ({
+            name: restaurant.name,
+            showing: restaurant.showing,
+            reasons: restaurant.reasons.join(', ') || 'showing',
+            active: restaurant.isActive,
+            portal: restaurant.portalEnabled,
+            open: restaurant.isOpen,
+            matchedBy: restaurant.routeMatchedBy,
+            waypoint: restaurant.routeWaypointOrder,
+            closestWaypoint: restaurant.closestWaypoint,
+            closestDistanceKm: restaurant.closestDistanceKm,
+            city: restaurant.city,
+          }))
+        );
+        console.groupEnd();
+      }
       return res.data.data as { route: Route; restaurants: Restaurant[] };
     },
     enabled: !!params.routeId,

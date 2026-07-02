@@ -12,6 +12,7 @@ interface RForm {
   latitude: string; longitude: string;
   foodType: 'veg'|'non-veg'|'both';
   cuisines: string[];
+  routes: string[];
   avgPrepTimeMinutes: string;
   'openingHours.open': string; 'openingHours.close': string;
   coverFile: File|null; coverPreview: string;
@@ -25,6 +26,7 @@ export default function RestaurantProfilePage() {
     'address.street':'', 'address.city':'', 'address.state':'', 'address.pincode':'',
     latitude:'', longitude:'',
     foodType:'both', cuisines:[],
+    routes: [],
     avgPrepTimeMinutes:'20',
     'openingHours.open':'08:00', 'openingHours.close':'22:00',
     coverFile:null, coverPreview:'',
@@ -35,6 +37,12 @@ export default function RestaurantProfilePage() {
     queryKey: ['my-restaurant'],
     queryFn: async () => (await api.get('/restaurants/owner/me')).data.data.restaurant,
   });
+
+  const { data: routesResponse } = useQuery({
+    queryKey: ['routes'],
+    queryFn: async () => (await api.get('/routes')).data,
+  });
+  const routes = routesResponse?.data?.routes || [];
 
   useEffect(() => {
     if (!restaurant) return;
@@ -52,6 +60,7 @@ export default function RestaurantProfilePage() {
       longitude: restaurant.location?.coordinates?.[0]?.toString() || '',
       foodType: restaurant.foodType || 'both',
       cuisines: restaurant.cuisines || [],
+      routes: restaurant.routes ? restaurant.routes.map((r: any) => typeof r === 'object' && r ? r._id : r) : [],
       avgPrepTimeMinutes: String(restaurant.avgPrepTimeMinutes || 20),
       'openingHours.open': restaurant.openingHours?.open || '08:00',
       'openingHours.close': restaurant.openingHours?.close || '22:00',
@@ -69,6 +78,7 @@ export default function RestaurantProfilePage() {
     Object.entries(form).forEach(([k, v]) => {
       if (k === 'coverFile' || k === 'coverPreview') return;
       if (k === 'cuisines') (v as string[]).forEach(c => fd.append('cuisines[]', c));
+      else if (k === 'routes') (v as string[]).forEach(r => fd.append('routes[]', r));
       else fd.append(k, String(v));
     });
     if (form.coverFile) fd.append('coverImage', form.coverFile);
@@ -83,6 +93,14 @@ export default function RestaurantProfilePage() {
 
   const toggleCuisine = (c: string) =>
     setForm(f => ({ ...f, cuisines: f.cuisines.includes(c) ? f.cuisines.filter(x => x !== c) : [...f.cuisines, c] }));
+
+  const toggleRoute = (routeId: string) =>
+    setForm(f => ({
+      ...f,
+      routes: f.routes.includes(routeId)
+        ? f.routes.filter(id => id !== routeId)
+        : [...f.routes, routeId]
+    }));
 
   const set = (k: keyof RForm, v: string) => setForm(f => ({ ...f, [k]: v }));
 
@@ -198,6 +216,24 @@ export default function RestaurantProfilePage() {
           </div>
         </div>
 
+        {/* Routes */}
+        <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm">
+          <h2 className="font-black text-slate-900 text-sm uppercase tracking-wider mb-2">Routes *</h2>
+          <p className="text-xs text-slate-400 font-medium mb-4">Select one or more routes along which your restaurant is located.</p>
+          <div className="grid sm:grid-cols-2 gap-2">
+            {routes.map((route: any) => {
+              const active = form.routes.includes(route._id);
+              return (
+                <button key={route._id} type="button" onClick={() => toggleRoute(route._id)}
+                  className={`text-left px-3 py-2.5 rounded-xl border-2 transition-all ${active ? 'border-orange-400 bg-orange-50 text-orange-700' : 'border-slate-200 bg-white text-slate-500'}`}>
+                  <p className="text-xs font-black">{route.name}</p>
+                  <p className="text-[10px] font-medium opacity-70 mt-0.5">{route.fromCity} to {route.toCity}</p>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
         {/* Operations */}
         <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm space-y-4">
           <h2 className="font-black text-slate-900 text-sm uppercase tracking-wider flex items-center gap-2">
@@ -219,7 +255,7 @@ export default function RestaurantProfilePage() {
         </div>
 
         {/* Save */}
-        <button onClick={handleSave} disabled={saveMut.isPending || !form.name || !form.phone}
+        <button onClick={handleSave} disabled={saveMut.isPending || !form.name || !form.phone || form.routes.length === 0}
           className="w-full py-4 rounded-2xl text-white font-black text-base flex items-center justify-center gap-2 transition-all hover:scale-[1.01] active:scale-[0.99] disabled:opacity-50 shadow-lg"
           style={{ background: 'linear-gradient(135deg,#FF6B35,#FF8C42)' }}>
           {saveMut.isPending ? <Loader2 className="w-5 h-5 animate-spin" /> : <><Save className="w-5 h-5" /> Save Profile</>}

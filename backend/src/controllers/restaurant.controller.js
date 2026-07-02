@@ -1,7 +1,185 @@
 const Restaurant = require('../models/Restaurant');
 const Route = require('../models/Route');
+const User = require('../models/User');
 const { successResponse, errorResponse, paginatedResponse } = require('../utils/apiResponse');
 const { haversineDistance, filterRestaurantsByRoute, findClosestWaypointIndex } = require('../utils/routeUtils');
+
+const ROUTE_MATCH_RADIUS_KM = 50;
+const portalEnabledFilter = { $ne: false };
+
+const isPortalEnabled = (restaurant) => restaurant.portalEnabled !== false;
+
+const hasRoute = (restaurant, routeId) =>
+  Array.isArray(restaurant.routes) && restaurant.routes.some((id) => String(id) === String(routeId));
+
+const getStoredWaypointOrder = (restaurant) => {
+  const value = restaurant.routeWaypointOrder;
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'string' && value.trim() !== '') {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return null;
+};
+
+const getClosestWaypoint = (restaurant, waypoints) => {
+  const coordinates = restaurant.location?.coordinates;
+  if (!Array.isArray(coordinates) || coordinates.length < 2) return null;
+
+  const [lng, lat] = coordinates;
+  if (lat === undefined || lng === undefined) return null;
+
+  return waypoints.reduce((closest, waypoint) => {
+    const distanceKm = haversineDistance(lat, lng, waypoint.coordinates.lat, waypoint.coordinates.lng);
+    if (!closest || distanceKm < closest.distanceKm) {
+      return { order: waypoint.order, name: waypoint.name, distanceKm };
+    }
+    return closest;
+  }, null);
+};
+
+const normalizeForRoute = (restaurant, route) => {
+  const assigned = hasRoute(restaurant, route._id);
+  const closest = getClosestWaypoint(restaurant, route.waypoints);
+
+  if (!assigned) return null;
+
+  const routeWaypointOrder = getStoredWaypointOrder(restaurant) ?? closest?.order;
+
+  if (typeof routeWaypointOrder !== 'number') return null;
+
+  return {
+    ...restaurant,
+    routeWaypointOrder,
+    routeMatchedBy: 'assigned',
+    routeMatchDistanceKm: closest ? Math.round(closest.distanceKm * 10) / 10 : null,
+  };
+};
+
+const getVisibilityDebug = (restaurants, route, fromOrder, toOrder) => {
+  const isForward = toOrder >= fromOrder;
+
+  return restaurants.map((restaurant) => {
+    const closest = getClosestWaypoint(restaurant, route.waypoints);
+    const assigned = hasRoute(restaurant, route._id);
+    const normalizedOrder = getStoredWaypointOrder(restaurant) ?? closest?.order;
+    const inSegment = typeof normalizedOrder === 'number'
+      ? isForward
+        ? normalizedOrder >= fromOrder && normalizedOrder <= toOrder
+        : normalizedOrder <= fromOrder && normalizedOrder >= toOrder
+      : false;
+
+    const reasons = [];
+    if (restaurant.isActive !== true) reasons.push('inactive');
+    if (!isPortalEnabled(restaurant)) reasons.push('portalDisabled');
+    if (!restaurant.location?.coordinates?.length) reasons.push('missingLocation');
+    if (!assigned) reasons.push('notAssignedToSelectedRoute');
+    if (typeof normalizedOrder !== 'number') reasons.push('missingRouteWaypointOrder');
+    if (typeof normalizedOrder === 'number' && !inSegment) reasons.push('outsideSelectedSegment');
+
+    return {
+      id: restaurant._id,
+      name: restaurant.name,
+      showing: reasons.length === 0,
+      reasons,
+      isActive: restaurant.isActive === true,
+      portalEnabled: isPortalEnabled(restaurant),
+      isOpen: restaurant.isOpen === true,
+      assignedToRoute: assigned,
+      routeMatchedBy: assigned ? 'assigned' : null,
+      routeWaypointOrder: normalizedOrder ?? null,
+      closestWaypoint: closest?.name ?? null,
+      closestDistanceKm: closest ? Math.round(closest.distanceKm * 10) / 10 : null,
+      city: restaurant.address?.city ?? null,
+    };
+  });
+};
+
+const normalizeRouteIds = async (input) => {
+  const raw = Array.isArray(input)
+    ? input
+    : typeof input === 'string'
+      ? input.split(',')
+      : [];
+
+  const ids = raw
+    .map((id) => String(id).trim())
+    .filter(Boolean);
+
+  if (ids.length === 0) {
+    const fallbackRoute = await Route.findOne({ isActive: true }).sort({ createdAt: 1 });
+    return fallbackRoute ? [fallbackRoute._id] : [];
+  }
+
+  return ids;
+};
+
+const getWaypointOrderForRoute = async (routeId, location) => {
+  const route = await Route.findById(routeId);
+  if (!route) return null;
+
+  const closest = getClosestWaypoint({ location }, route.waypoints);
+  return closest?.order ?? route.waypoints?.[0]?.order ?? 0;
+};
+
+const buildRestaurantPayload = async (body, existing = null) => {
+  const payload = { ...body };
+
+  delete payload.ownerName;
+  delete payload.ownerPhone;
+
+  if (body.latitude !== undefined && body.longitude !== undefined) {
+    payload.location = {
+      type: 'Point',
+      coordinates: [parseFloat(body.longitude), parseFloat(body.latitude)],
+    };
+    delete payload.latitude;
+    delete payload.longitude;
+  }
+
+  if (body.routes !== undefined || !existing) {
+    payload.routes = await normalizeRouteIds(body.routes);
+  }
+
+  const location = payload.location || existing?.location;
+  const selectedRoutes = payload.routes || existing?.routes || [];
+  const firstRouteId = selectedRoutes[0];
+  const parsedOrder = body.routeWaypointOrder !== undefined ? Number(body.routeWaypointOrder) : null;
+
+  if (Number.isFinite(parsedOrder)) {
+    payload.routeWaypointOrder = parsedOrder;
+  } else if (firstRouteId && location) {
+    payload.routeWaypointOrder = await getWaypointOrderForRoute(firstRouteId, location);
+  }
+
+  if (payload.avgPrepTimeMinutes !== undefined) {
+    payload.avgPrepTimeMinutes = parseInt(payload.avgPrepTimeMinutes, 10);
+  }
+
+  if (payload.gstRate !== undefined) {
+    payload.gstRate = parseFloat(payload.gstRate);
+  }
+
+  return payload;
+};
+
+const resolveRestaurantOwner = async (body) => {
+  if (body.owner) return body.owner;
+  if (!body.ownerPhone) return null;
+
+  const owner = await User.findOneAndUpdate(
+    { phone: body.ownerPhone },
+    {
+      phone: body.ownerPhone,
+      name: body.ownerName || body.name || 'Restaurant Owner',
+      role: 'restaurant',
+      isActive: true,
+    },
+    { upsert: true, new: true }
+  );
+
+  return owner._id;
+};
 
 /**
  * @swagger
@@ -29,7 +207,7 @@ const { haversineDistance, filterRestaurantsByRoute, findClosestWaypointIndex } 
  */
 exports.getRestaurantsByRoute = async (req, res, next) => {
   try {
-    const { routeId, fromCity, toCity, userLat, userLng } = req.query;
+    const { routeId, fromCity, toCity, userLat, userLng, debug } = req.query;
 
     const route = await Route.findById(routeId);
     if (!route) return errorResponse(res, 'Route not found', 404);
@@ -46,11 +224,14 @@ exports.getRestaurantsByRoute = async (req, res, next) => {
     const toOrder = toWp ? toWp.order : route.waypoints.length - 1;
 
     // Fetch all restaurants on this route — only active AND portal enabled
-    const allRestaurants = await Restaurant.find({
-      routes: routeId,
+    const visibleRestaurants = await Restaurant.find({
       isActive: true,
-      portalEnabled: true,
+      portalEnabled: portalEnabledFilter,
     }).lean();
+
+    const allRestaurants = visibleRestaurants
+      .map((restaurant) => normalizeForRoute(restaurant, route))
+      .filter(Boolean);
 
     const filtered = filterRestaurantsByRoute(allRestaurants, fromOrder, toOrder);
 
@@ -91,7 +272,37 @@ exports.getRestaurantsByRoute = async (req, res, next) => {
         })
       : enriched.sort((a, b) => (a.routeWaypointOrder ?? 0) - (b.routeWaypointOrder ?? 0));
 
-    return successResponse(res, { route: { name: route.name, slug: route.slug }, restaurants: sorted });  } catch (error) {
+    let debugData;
+    if (debug === 'true' && process.env.NODE_ENV !== 'production') {
+      const debugRestaurants = await Restaurant.find({}).lean();
+      const restaurantsDebug = getVisibilityDebug(debugRestaurants, route, fromOrder, toOrder);
+
+      debugData = {
+        route: {
+          id: route._id,
+          name: route.name,
+          fromCity: fromCity || route.fromCity,
+          toCity: toCity || route.toCity,
+          fromOrder,
+          toOrder,
+          matchRadiusKm: ROUTE_MATCH_RADIUS_KM,
+        },
+        counts: {
+          total: restaurantsDebug.length,
+          showing: restaurantsDebug.filter((item) => item.showing).length,
+          hidden: restaurantsDebug.filter((item) => !item.showing).length,
+        },
+        restaurants: restaurantsDebug,
+      };
+
+      console.log('[restaurants/by-route debug]', JSON.stringify(debugData, null, 2));
+    }
+
+    return successResponse(res, {
+      route: { name: route.name, slug: route.slug },
+      restaurants: sorted,
+      ...(debugData ? { debug: debugData } : {}),
+    });  } catch (error) {
     next(error);
   }
 };
@@ -108,7 +319,7 @@ exports.getRestaurantById = async (req, res, next) => {
     const restaurant = await Restaurant.findOne({
       _id: req.params.id,
       isActive: true,
-      portalEnabled: true,
+      portalEnabled: portalEnabledFilter,
     }).populate('routes', 'name slug').lean();
     if (!restaurant) return errorResponse(res, 'Restaurant not found', 404);
     return successResponse(res, { restaurant });
@@ -189,6 +400,25 @@ exports.updateMyRestaurant = async (req, res, next) => {
       updates.images = req.files.images.map(f => f.path);
     }
 
+    // Handle routes array (comes as routes[] from FormData or routes in json)
+    if (req.body['routes[]']) {
+      const routesArray = Array.isArray(req.body['routes[]']) ? req.body['routes[]'] : [req.body['routes[]']];
+      updates.routes = await normalizeRouteIds(routesArray);
+    } else if (req.body.routes) {
+      updates.routes = await normalizeRouteIds(req.body.routes);
+    } else if (!restaurant) {
+      // First time and no routes supplied
+      updates.routes = await normalizeRouteIds(undefined);
+    }
+
+    // Determine routeWaypointOrder based on route coordinates
+    const finalRoutes = updates.routes || restaurant?.routes || [];
+    const firstRouteId = finalRoutes[0];
+    const finalLocation = updates.location || restaurant?.location;
+    if (firstRouteId && finalLocation) {
+      updates.routeWaypointOrder = await getWaypointOrderForRoute(firstRouteId, finalLocation);
+    }
+
     let updated;
     if (!restaurant) {
       // First time — create restaurant for this owner
@@ -233,6 +463,7 @@ exports.getAllRestaurants = async (req, res, next) => {
     const total = await Restaurant.countDocuments(filter);
     const restaurants = await Restaurant.find(filter)
       .populate('owner', 'name phone')
+      .populate('routes', 'name fromCity toCity')
       .skip((page - 1) * limit)
       .limit(parseInt(limit))
       .sort({ createdAt: -1 });
@@ -245,7 +476,11 @@ exports.getAllRestaurants = async (req, res, next) => {
 
 exports.createRestaurant = async (req, res, next) => {
   try {
-    const restaurant = await Restaurant.create(req.body);
+    const owner = await resolveRestaurantOwner(req.body);
+    if (!owner) return errorResponse(res, 'Owner phone is required to create a restaurant.', 400);
+
+    const payload = await buildRestaurantPayload(req.body);
+    const restaurant = await Restaurant.create({ ...payload, owner });
     return successResponse(res, { restaurant }, 'Restaurant created', 201);
   } catch (error) {
     next(error);
@@ -256,7 +491,8 @@ exports.updateRestaurant = async (req, res, next) => {
   try {
     const restaurant = await Restaurant.findById(req.params.id);
     if (!restaurant) return errorResponse(res, 'Restaurant not found', 404);
-    Object.assign(restaurant, req.body);
+    const payload = await buildRestaurantPayload(req.body, restaurant);
+    Object.assign(restaurant, payload);
     await restaurant.save();
     return successResponse(res, { restaurant }, 'Restaurant updated');
   } catch (error) {
@@ -295,3 +531,4 @@ exports.deleteRestaurant = async (req, res, next) => {
     next(error);
   }
 };
+
