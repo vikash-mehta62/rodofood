@@ -1,21 +1,47 @@
-const mongoose = require('mongoose');
+const mongoose = require("mongoose");
 
 const notificationSchema = new mongoose.Schema(
   {
     title: { type: String, required: true },
-    message: { type: String, required: true },
-    type: { type: String, enum: ['all', 'user'], default: 'all' }, // all = broadcast, user = specific
-    targetUser: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }, // only if type=user
-    icon: { type: String, default: '🔔' },
-    link: { type: String }, // optional deep link e.g. /home
-    createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-    // Track which users have read this notification
-    readBy: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+    body: { type: String, required: true },
+    
+    imageUrl: {
+      type: String,
+      default: ""
+    },
+    
+    userId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null
+    },
+    
+    vendorId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Restaurant",
+      default: null
+    },
+    
+    isForGuest: {
+      type: Boolean,
+      default: false
+    },
+    
+    type: {
+      type: String, // offer, booking, system, topic, etc.
+      default: "system"
+    },
+    
+    data: {
+      type: Object // optional extra payload for deep links
+    },
+    
+    isRead: {
+      type: Boolean,
+      default: false
+    }
   },
   { timestamps: true }
 );
 
-notificationSchema.index({ createdAt: -1 });
-notificationSchema.index({ targetUser: 1 });
-
-module.exports = mongoose.model('Notification', notificationSchema);
+module.exports = mongoose.model("Notification", notificationSchema);
