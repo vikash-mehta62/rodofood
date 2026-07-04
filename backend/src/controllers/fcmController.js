@@ -158,3 +158,73 @@ exports.sendNotification = async (req, res) => {
     res.status(500).json({ success: false, message: 'Internal server error' });
   }
 };
+
+const Topic = require('../models/Topic');
+
+/**
+ * Get device stats for the dashboard
+ */
+exports.getDeviceStats = async (req, res) => {
+  try {
+    const totalDevices = await Device.countDocuments();
+    const customers = await Device.countDocuments({ userId: { $ne: null } });
+    const partners = await Device.countDocuments({ vendorId: { $ne: null } });
+    const guests = await Device.countDocuments({ isGuest: true });
+
+    res.status(200).json({
+      success: true,
+      data: { totalDevices, customers, partners, guests }
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+};
+
+/**
+ * Custom Topics Management
+ */
+exports.getTopics = async (req, res) => {
+  try {
+    const topics = await Topic.find().sort({ createdAt: -1 });
+    res.status(200).json({ success: true, data: topics });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+};
+
+exports.createTopic = async (req, res) => {
+  try {
+    const { topicKey, displayName, description, autoSubscribe } = req.body;
+    if (!topicKey || !displayName) {
+      return res.status(400).json({ success: false, message: 'topicKey and displayName are required' });
+    }
+    const topic = await Topic.create({ topicKey, displayName, description, autoSubscribe });
+    res.status(201).json({ success: true, data: topic });
+  } catch (error) {
+    if (error.code === 11000) return res.status(400).json({ success: false, message: 'Topic key already exists' });
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+};
+
+exports.deleteTopic = async (req, res) => {
+  try {
+    await Topic.findByIdAndDelete(req.params.id);
+    res.status(200).json({ success: true, message: 'Topic deleted' });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+};
+
+/**
+ * Get all devices (for enrollment modal)
+ */
+exports.getAllDevices = async (req, res) => {
+  try {
+    const devices = await Device.find()
+      .populate('userId', 'name phone')
+      .populate('vendorId', 'restaurantName phone');
+    res.status(200).json({ success: true, data: devices });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+};

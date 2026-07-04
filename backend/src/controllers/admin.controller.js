@@ -102,3 +102,15 @@ exports.getRevenueAnalytics = async (req, res, next) => {
     next(error);
   }
 };
+
+exports.uploadImage = async (req, res, next) => {
+  try {
+    if (!req.file) {
+      return errorResponse(res, 'No image file provided', 400);
+    }
+    return successResponse(res, { imageUrl: req.file.path });
+  } catch (error) {
+    next(error);
+  }
+};
+

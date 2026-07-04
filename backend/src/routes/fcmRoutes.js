@@ -96,4 +96,10 @@ router.post('/send', fcmController.sendNotification);
     }
 */
 
+router.get('/stats', fcmController.getDeviceStats);
+router.get('/topics', fcmController.getTopics);
+router.post('/topics', fcmController.createTopic);
+router.delete('/topics/:id', fcmController.deleteTopic);
+router.get('/devices', fcmController.getAllDevices);
+
 module.exports = router;

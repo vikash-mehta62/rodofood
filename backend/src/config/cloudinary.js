@@ -30,7 +30,19 @@ const restaurantStorage = new CloudinaryStorage({
   },
 });
 
+// Admin images (e.g. notifications)
+const adminStorage = new CloudinaryStorage({
+  cloudinary,
+  params: {
+    folder: `${FOLDER}/admin`,
+    allowed_formats: ['jpg','jpeg','png','webp'],
+    // General transformation, can be adjusted
+    transformation: [{ width: 800, crop: 'scale', quality: 'auto' }],
+  },
+});
+
 const uploadMenu       = multer({ storage: menuStorage,       limits: { fileSize: 5 * 1024 * 1024 } });
 const uploadRestaurant = multer({ storage: restaurantStorage, limits: { fileSize: 5 * 1024 * 1024 } });
+const uploadAdmin      = multer({ storage: adminStorage,      limits: { fileSize: 5 * 1024 * 1024 } });
 
-module.exports = { cloudinary, uploadMenu, uploadRestaurant };
+module.exports = { cloudinary, uploadMenu, uploadRestaurant, uploadAdmin };
