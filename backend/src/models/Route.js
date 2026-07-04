@@ -1,27 +1,5 @@
 const mongoose = require('mongoose');
 
-/**
- * @swagger
- * components:
- *   schemas:
- *     Route:
- *       type: object
- *       properties:
- *         name: { type: string, example: "Bhopal - Indore" }
- *         slug: { type: string, example: "bhopal-indore" }
- *         waypoints:
- *           type: array
- *           items:
- *             type: object
- *             properties:
- *               name: { type: string }
- *               coordinates:
- *                 type: object
- *                 properties:
- *                   lat: { type: number }
- *                   lng: { type: number }
- *               order: { type: number }
- */
 const waypointSchema = new mongoose.Schema({
   name: { type: String, required: true },
   coordinates: {

@@ -264,12 +264,12 @@ exports.getRestaurantsByRoute = async (req, res, next) => {
     // Otherwise sort by routeWaypointOrder
     const sorted = userLat && userLng
       ? enriched.sort((a, b) => {
-          // Ahead restaurants first
-          if (a.position === 'ahead' && b.position === 'passed') return -1;
-          if (a.position === 'passed' && b.position === 'ahead') return 1;
-          // Then by distance
-          return (a.distanceKm ?? 999) - (b.distanceKm ?? 999);
-        })
+        // Ahead restaurants first
+        if (a.position === 'ahead' && b.position === 'passed') return -1;
+        if (a.position === 'passed' && b.position === 'ahead') return 1;
+        // Then by distance
+        return (a.distanceKm ?? 999) - (b.distanceKm ?? 999);
+      })
       : enriched.sort((a, b) => (a.routeWaypointOrder ?? 0) - (b.routeWaypointOrder ?? 0));
 
     let debugData;
@@ -302,7 +302,8 @@ exports.getRestaurantsByRoute = async (req, res, next) => {
       route: { name: route.name, slug: route.slug },
       restaurants: sorted,
       ...(debugData ? { debug: debugData } : {}),
-    });  } catch (error) {
+    });
+  } catch (error) {
     next(error);
   }
 };
@@ -332,8 +333,13 @@ exports.getRestaurantById = async (req, res, next) => {
 
 exports.getMyRestaurant = async (req, res, next) => {
   try {
-    const restaurant = await Restaurant.findOne({ owner: req.user._id });
-    if (!restaurant) return successResponse(res, { restaurant: null }, 'No restaurant yet');
+    const restaurant = await Restaurant.findOne({ owner: req.user._id })
+      .populate('routes', 'name slug fromCity toCity'); // 👈 populate route fields
+
+    if (!restaurant) {
+      return successResponse(res, { restaurant: null }, 'No restaurant yet');
+    }
+
     return successResponse(res, { restaurant });
   } catch (error) {
     next(error);
