@@ -7,7 +7,20 @@
     "swagger": "node src/config/swagger.js",
     "start": "node src/server.js",
     "dev": "npm run swagger && nodemon src/server.js",
-    "lint": "eslint src/"
+    "lint": "eslint src/",
+    "test:fcm": "node src/utils/testFCM.js",
+    "test:token": "node src/utils/testDirectToken.js",
+    "test:quick": "node src/utils/quickTest.js",
+    "test:customers": "node src/utils/testCustomersTopic.js",
+    "test:vendor": "node src/utils/testAllUsersVendor.js",
+    "test:direct": "node src/utils/testDirectNoTopic.js",
+    "cleanup:devices": "node src/utils/cleanupDevices.js",
+    "analyze:topics": "node src/utils/analyzeTopics.js",
+    "fix:topics": "node src/utils/fixTopicSubscriptions.js",
+    "fix:roles": "node src/utils/fixConflictingRoles.js",
+    "fix:restaurant": "node src/utils/fixRestaurantTopic.js",
+    "resync:topics": "node src/utils/resyncTopics.js",
+    "validate:token": "node src/utils/validateToken.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

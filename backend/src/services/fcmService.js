@@ -8,20 +8,27 @@ class FCMService {
    */
   async sendToDevice(fcmToken, title, body, data = {}, imageUrl = '') {
     try {
+      const stringData = {};
+      for (const key in data) {
+        stringData[key] = String(data[key]);
+      }
+
       const message = {
         token: fcmToken,
-        notification: {
-          title,
-          body,
-          ...(imageUrl && { imageUrl })
+        notification: { title, body, ...(imageUrl && { imageUrl }) },
+        data: stringData,
+        android: {
+          priority: 'high',
+          notification: { sound: 'default', priority: 'high', channelId: 'default' }
         },
-        data,
+        apns: {
+          payload: { aps: { sound: 'default', 'content-available': 1 } }
+        }
       };
 
-      const response = await getMessaging().send(message);
-      return response;
+      return await getMessaging().send(message);
     } catch (error) {
-      console.error('Error sending to device:', error);
+      console.error('FCM sendToDevice error:', error.code);
       throw error;
     }
   }
@@ -31,20 +38,27 @@ class FCMService {
    */
   async sendToTopic(topic, title, body, data = {}, imageUrl = '') {
     try {
+      const stringData = {};
+      for (const key in data) {
+        stringData[key] = String(data[key]);
+      }
+
       const message = {
         topic: topic,
-        notification: {
-          title,
-          body,
-          ...(imageUrl && { imageUrl })
+        notification: { title, body, ...(imageUrl && { imageUrl }) },
+        data: stringData,
+        android: {
+          priority: 'high',
+          notification: { sound: 'default', priority: 'high', channelId: 'default' }
         },
-        data,
+        apns: {
+          payload: { aps: { sound: 'default', 'content-available': 1 } }
+        }
       };
 
-      const response = await getMessaging().send(message);
-      return response;
+      return await getMessaging().send(message);
     } catch (error) {
-      console.error('Error sending to topic:', error);
+      console.error('FCM sendToTopic error:', error.code);
       throw error;
     }
   }
@@ -84,7 +98,7 @@ class FCMService {
       const notification = new Notification(payload);
       return await notification.save();
     } catch (error) {
-      console.error('Error saving notification:', error);
+      console.error('Error saving notification:', error.message);
       throw error;
     }
   }
