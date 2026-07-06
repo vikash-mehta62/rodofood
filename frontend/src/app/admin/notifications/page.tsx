@@ -54,22 +54,41 @@ export default function AdminNotificationsPage() {
         finalImageUrl = res.data.data.imageUrl;
         setIsUploading(false);
       }
+      
       return api.post('/fcm/send', {
         targetType: 'topic',
         target: targetTopic,
         title,
         body: message,
-        imageUrl: finalImageUrl,
+        imageUrl: finalImageUrl || undefined,
         type: 'system',
+        data: {
+          type: 'system',
+          screen: 'Notifications',
+          timestamp: Date.now().toString()
+        }
       });
     },
-    onSuccess: () => {
-      setTitle(''); setMessage(''); setImageUrl('');
+    onSuccess: (response) => {
+      const deliveryInfo = response.data.deliveryInfo;
+      const deviceCount = deliveryInfo?.targetDeviceCount || 0;
+      
+      if (deviceCount === 0) {
+        alert('⚠️ Warning: No devices subscribed to this topic!');
+      }
+      
+      setTitle(''); 
+      setMessage(''); 
+      setImageUrl('');
       clearImage();
       setSent(true);
       setTimeout(() => setSent(false), 3000);
     },
-    onError: () => setIsUploading(false)
+    onError: (error) => {
+      console.error('Notification send failed:', error);
+      setIsUploading(false);
+      alert('Failed to send notification: ' + (error.response?.data?.message || error.message));
+    }
   });
 
   const createTopicMut = useMutation({
