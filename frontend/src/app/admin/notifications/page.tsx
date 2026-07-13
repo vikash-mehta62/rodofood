@@ -84,7 +84,7 @@ export default function AdminNotificationsPage() {
       setSent(true);
       setTimeout(() => setSent(false), 3000);
     },
-    onError: (error) => {
+    onError: (error: any) => {
       console.error('Notification send failed:', error);
       setIsUploading(false);
       alert('Failed to send notification: ' + (error.response?.data?.message || error.message));
