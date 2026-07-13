@@ -6,6 +6,8 @@ const { successResponse, errorResponse, paginatedResponse } = require('../utils/
 const { sendOrderConfirmationEmail, sendNewOrderEmailToRestaurant, sendOrderStatusEmail, sendRefundEmail } = require('../utils/emailService');
 const Razorpay = require('razorpay');
 const logger = require('../utils/logger');
+const Device = require('../models/Device');
+const fcmService = require('../services/fcmService');
 
 // ─── Customer ─────────────────────────────────────────────────────────────────
 
@@ -77,10 +79,11 @@ exports.createOrder = async (req, res, next) => {
       }
     }
 
-    const gstRate = restaurant.gstRate;
+    const platformFee = 5; // Default platform fee
+    const gstRate = restaurant.gstRate || 0;
     const taxableAmount = subtotal - discount;
     const gstAmount = Math.round((taxableAmount * gstRate) / 100 * 100) / 100;
-    const totalAmount = Math.round((taxableAmount + gstAmount) * 100) / 100;
+    const totalAmount = Math.round((taxableAmount + gstAmount + platformFee) * 100) / 100;
 
     const order = await Order.create({
       customer: req.user._id,
@@ -90,6 +93,7 @@ exports.createOrder = async (req, res, next) => {
       gstAmount,
       gstRate,
       discount,
+      platformFee,
       totalAmount,
       coupon: couponDoc?._id,
       couponCode: couponDoc?.code,
@@ -138,6 +142,22 @@ exports.createOrder = async (req, res, next) => {
       sendNewOrderEmailToRestaurant(restaurantDoc.owner.email, {
         order: populated,
         restaurantName: restaurantDoc.name,
+      }).catch(() => {});
+    }
+
+    // Send Push Notification to Customer
+    Device.find({ userId: req.user._id }).then((devices) => {
+      devices.forEach(d => {
+        if (d.fcmToken) fcmService.sendToDevice(d.fcmToken, 'Order Placed!', `Your order #${order.orderNumber} has been placed successfully.`).catch(() => {});
+      });
+    }).catch(() => {});
+
+    // Send Push Notification to Restaurant
+    if (restaurantDoc?.owner?._id) {
+      Device.find({ vendorId: restaurantDoc.owner._id }).then((devices) => {
+        devices.forEach(d => {
+          if (d.fcmToken) fcmService.sendToDevice(d.fcmToken, 'New Order!', `You have received a new order #${order.orderNumber}.`).catch(() => {});
+        });
       }).catch(() => {});
     }
 
@@ -270,6 +290,13 @@ exports.updateOrderStatus = async (req, res, next) => {
       });
     }
 
+    // Send Push Notification to Customer
+    Device.find({ userId: order.customer }).then((devices) => {
+      devices.forEach(d => {
+        if (d.fcmToken) fcmService.sendToDevice(d.fcmToken, 'Order Update', `Your order #${order.orderNumber} is now ${status}.`).catch(() => {});
+      });
+    }).catch(() => {});
+
     // Send status update email to customer
     const populatedOrder = await Order.findById(order._id)
       .populate('customer', 'name email')
@@ -368,6 +395,16 @@ exports.cancelOrder = async (req, res, next) => {
       } catch (refundErr) {
         logger.error(`Refund failed on customer cancel: ${refundErr.message}`);
       }
+    }
+
+    // Send Push Notification to Restaurant
+    const restaurantDoc = await Restaurant.findById(order.restaurant);
+    if (restaurantDoc?.owner) {
+      Device.find({ vendorId: restaurantDoc.owner }).then((devices) => {
+        devices.forEach(d => {
+          if (d.fcmToken) fcmService.sendToDevice(d.fcmToken, 'Order Cancelled', `Customer cancelled order #${order.orderNumber}.`).catch(() => {});
+        });
+      }).catch(() => {});
     }
 
     return successResponse(res, {

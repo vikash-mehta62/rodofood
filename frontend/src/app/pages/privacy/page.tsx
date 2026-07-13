@@ -52,7 +52,7 @@ We do not share your phone number or email with restaurants.`,
   },
   {
     title: '6. Data Retention',
-    body: `We retain your account data as long as your account is active. Order history is retained for 2 years for legal and support purposes. You can request deletion of your account and associated data by contacting us at support@rodofood.in.`,
+    body: `We retain your account data as long as your account is active. Order history is retained for 2 years for legal and support purposes. You can request deletion of your account and associated data by contacting us at support@rodofood.com.`,
   },
   {
     title: '7. Security',
@@ -71,14 +71,14 @@ We do not share your phone number or email with restaurants.`,
 • Request deletion of your account and data
 • Withdraw consent for location access at any time via device settings
 
-To exercise these rights, contact us at support@rodofood.in.`,
+To exercise these rights, contact us at support@rodofood.com.`,
   },
   {
     title: '10. Contact',
     body: `For any privacy concerns or data requests:
 
-📧 Email: support@rodofood.in
-📞 Phone: +91 62601 44122
+📧 Email: support@rodofood.com
+📞 Phone: +91 7580851506
 📍 Address: Bhopal, Madhya Pradesh, India – 462001`,
   },
 ];

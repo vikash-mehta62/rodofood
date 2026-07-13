@@ -32,8 +32,8 @@ export default function ProfilePage() {
   const totalSpent = orders?.filter(o => o.status === 'completed').reduce((s, o) => s + o.totalAmount, 0) ?? 0;
 
   const MENU = [
-    { icon: MessageCircle, label: 'WhatsApp Support', sub: 'Chat with us anytime',     href: null, action: () => window.open('https://wa.me/916260144122'), color: 'text-emerald-600 bg-emerald-50' },
-    { icon: HelpCircle,    label: 'Help & FAQ',       sub: 'Common questions answered', href: null, action: () => window.open('https://wa.me/916260144122'), color: 'text-blue-600 bg-blue-50' },
+    { icon: MessageCircle, label: 'WhatsApp Support', sub: 'Chat with us anytime',     href: null, action: () => window.open('https://wa.me/917580851506'), color: 'text-emerald-600 bg-emerald-50' },
+    { icon: HelpCircle,    label: 'Help & FAQ',       sub: 'Common questions answered', href: null, action: () => window.open('https://wa.me/917580851506'), color: 'text-blue-600 bg-blue-50' },
     { icon: FileText,      label: 'About Us',         sub: 'Our story & mission',      href: '/pages/about',   action: null, color: 'text-gray-500 bg-gray-100' },
     { icon: FileText,      label: 'Terms & Conditions', sub: 'Our terms of service',   href: '/pages/terms',   action: null, color: 'text-gray-500 bg-gray-100' },
     { icon: FileText,      label: 'Privacy Policy',   sub: 'How we use your data',     href: '/pages/privacy', action: null, color: 'text-gray-500 bg-gray-100' },

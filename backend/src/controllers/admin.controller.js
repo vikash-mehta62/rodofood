@@ -114,3 +114,55 @@ exports.uploadImage = async (req, res, next) => {
   }
 };
 
+exports.getRestaurantRevenue = async (req, res, next) => {
+  try {
+    const { timeframe = 'monthly' } = req.query; // day, week, month
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    let matchStage = { status: 'completed' };
+    
+    if (timeframe === 'day') {
+      matchStage.createdAt = { $gte: today };
+    } else if (timeframe === 'week') {
+      const weekAgo = new Date(today);
+      weekAgo.setDate(weekAgo.getDate() - 7);
+      matchStage.createdAt = { $gte: weekAgo };
+    } else if (timeframe === 'month') {
+      const monthAgo = new Date(today);
+      monthAgo.setMonth(monthAgo.getMonth() - 1);
+      matchStage.createdAt = { $gte: monthAgo };
+    }
+
+    const data = await Order.aggregate([
+      { $match: matchStage },
+      { $group: { _id: '$restaurant', revenue: { $sum: '$totalAmount' }, orders: { $sum: 1 } } },
+      { $lookup: { from: 'restaurants', localField: '_id', foreignField: '_id', as: 'restaurantInfo' } },
+      { $unwind: '$restaurantInfo' },
+      { $project: {
+          _id: 1,
+          revenue: 1,
+          orders: 1,
+          restaurantName: '$restaurantInfo.name'
+        }
+      },
+      { $sort: { revenue: -1 } }
+    ]);
+
+    return successResponse(res, { revenueByRestaurant: data });
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.makeAdmin = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.params.id);
+    if (!user) return errorResponse(res, 'User not found', 404);
+    user.role = 'admin';
+    await user.save();
+    return successResponse(res, { message: 'User role updated to admin', user });
+  } catch (error) {
+    next(error);
+  }
+};

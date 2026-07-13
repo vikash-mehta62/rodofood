@@ -76,8 +76,8 @@ export default function AboutPage() {
             <p><span className="font-semibold text-gray-800">Business Name:</span> Rodofood</p>
             <p><span className="font-semibold text-gray-800">Type:</span> Online Food Pre-Ordering Platform</p>
             <p><span className="font-semibold text-gray-800">Serving:</span> Highway routes across Madhya Pradesh & Central India</p>
-            <p><span className="font-semibold text-gray-800">Email:</span> support@rodofood.in</p>
-            <p><span className="font-semibold text-gray-800">Phone:</span> +91 62601 44122</p>
+            <p><span className="font-semibold text-gray-800">Email:</span> support@rodofood.com</p>
+            <p><span className="font-semibold text-gray-800">Phone:</span> +91 7580851506</p>
             <p><span className="font-semibold text-gray-800">Address:</span> Bhopal, Madhya Pradesh, India – 462001</p>
           </div>
         </div>

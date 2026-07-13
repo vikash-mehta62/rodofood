@@ -13,7 +13,7 @@ const SECTIONS = [
 
 • Go to My Orders → Select the order → Cancel Order
 • Once the restaurant confirms your order, cancellation is not possible through the app
-• For urgent cancellations after confirmation, contact us immediately at support@rodofood.in or +91 62601 44122`,
+• For urgent cancellations after confirmation, contact us immediately at support@rodofood.com or +91 7580851506`,
   },
   {
     title: 'Cancellation by Restaurant',
@@ -61,15 +61,15 @@ Refunds are credited to the original payment method used at the time of order. W
     title: 'How to Request a Refund',
     body: `To request a refund:
 
-1. Email us at support@rodofood.in with subject: "Refund Request – Order #[your order number]"
+1. Email us at support@rodofood.com with subject: "Refund Request – Order #[your order number]"
 2. Include your registered phone number and reason for refund
 3. Our team will review and respond within 24 business hours
 
-Alternatively, WhatsApp us at +91 62601 44122.`,
+Alternatively, WhatsApp us at +91 7580851506.`,
   },
   {
     title: 'Dispute Resolution',
-    body: `If you are unsatisfied with our refund decision, you may escalate by emailing support@rodofood.in with "Escalation" in the subject line. We aim to resolve all disputes within 7 business days.`,
+    body: `If you are unsatisfied with our refund decision, you may escalate by emailing support@rodofood.com with "Escalation" in the subject line. We aim to resolve all disputes within 7 business days.`,
   },
 ];
 

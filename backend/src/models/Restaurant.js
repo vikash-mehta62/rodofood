@@ -44,6 +44,8 @@ const restaurantSchema = new mongoose.Schema(
     // Financials
     gstNumber: { type: String },
     gstRate: { type: Number, default: 5 }, // percentage
+    allowPayAtStore: { type: Boolean, default: true },
+    requireBookingAmountForPayAtStore: { type: Boolean, default: false },
     // Prep time
     avgPrepTimeMinutes: { type: Number, default: 20 },
     // Stats

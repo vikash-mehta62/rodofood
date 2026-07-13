@@ -45,8 +45,8 @@ We are continuously expanding to new routes. Check the app for the latest availa
     title: 'Contact',
     body: `For any questions about order fulfillment:
 
-📧 Email: support@rodofood.in
-📞 Phone: +91 62601 44122
+📧 Email: support@rodofood.com
+📞 Phone: +91 7580851506
 📍 Address: Bhopal, Madhya Pradesh, India – 462001`,
   },
 ];

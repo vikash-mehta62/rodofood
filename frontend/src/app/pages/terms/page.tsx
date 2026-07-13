@@ -36,7 +36,7 @@ const SECTIONS = [
     title: '6. Cancellations',
     body: `• You may cancel an order only while it is in "Pending" status (before restaurant confirmation)
 • Once a restaurant confirms your order, cancellation is not guaranteed
-• For cancellation requests after confirmation, contact us immediately at support@rodofood.in
+• For cancellation requests after confirmation, contact us immediately at support@rodofood.com
 • Refunds for cancelled orders are subject to our Refund Policy`,
   },
   {
@@ -80,8 +80,8 @@ However, we will assist in resolving disputes where possible.`,
     title: '13. Contact',
     body: `For any queries regarding these terms:
 
-📧 Email: support@rodofood.in
-📞 Phone: +91 62601 44122
+📧 Email: support@rodofood.com
+📞 Phone: +91 7580851506
 📍 Address: Bhopal, Madhya Pradesh, India – 462001`,
   },
   {
@@ -116,7 +116,7 @@ Termination:
 • Either party may terminate the partnership with 7 days written notice
 • Rodofood may immediately terminate access in case of fraud, repeated violations, or legal issues
 
-For partner support: support@rodofood.in | +91 62601 44122`,
+For partner support: support@rodofood.com | +91 7580851506`,
   },
 ];
 
