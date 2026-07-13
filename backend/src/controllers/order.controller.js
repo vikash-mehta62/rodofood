@@ -337,26 +337,51 @@ exports.getRestaurantEarnings = async (req, res, next) => {
     today.setHours(0, 0, 0, 0);
     const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
 
+    const groupStage = { 
+      _id: null, 
+      total: { $sum: '$totalAmount' }, 
+      subtotal: { $sum: '$subtotal' },
+      gstAmount: { $sum: '$gstAmount' },
+      platformFee: { $sum: '$platformFee' },
+      discount: { $sum: '$discount' },
+      count: { $sum: 1 } 
+    };
+
     const [todayStats, monthStats, allTime] = await Promise.all([
       Order.aggregate([
         { $match: { restaurant: restaurant._id, status: 'completed', createdAt: { $gte: today } } },
-        { $group: { _id: null, total: { $sum: '$totalAmount' }, count: { $sum: 1 } } },
+        { $group: groupStage },
       ]),
       Order.aggregate([
         { $match: { restaurant: restaurant._id, status: 'completed', createdAt: { $gte: monthStart } } },
-        { $group: { _id: null, total: { $sum: '$totalAmount' }, count: { $sum: 1 } } },
+        { $group: groupStage },
       ]),
       Order.aggregate([
         { $match: { restaurant: restaurant._id, status: 'completed' } },
-        { $group: { _id: null, total: { $sum: '$totalAmount' }, count: { $sum: 1 } } },
+        { $group: groupStage },
       ]),
     ]);
 
-    return successResponse(res, {
-      today: todayStats[0] || { total: 0, count: 0 },
-      thisMonth: monthStats[0] || { total: 0, count: 0 },
-      allTime: allTime[0] || { total: 0, count: 0 },
-    });
+    const defaultStats = { total: 0, subtotal: 0, gstAmount: 0, platformFee: 0, discount: 0, count: 0 };
+    const responseData = {
+      today: todayStats[0] || defaultStats,
+      thisMonth: monthStats[0] || defaultStats,
+      allTime: allTime[0] || defaultStats,
+    };
+
+    if (req.query.timeframe === 'custom' && req.query.startDate && req.query.endDate) {
+      const start = new Date(req.query.startDate);
+      const end = new Date(req.query.endDate);
+      end.setHours(23, 59, 59, 999);
+      
+      const customStats = await Order.aggregate([
+        { $match: { restaurant: restaurant._id, status: 'completed', createdAt: { $gte: start, $lte: end } } },
+        { $group: groupStage },
+      ]);
+      responseData.custom = customStats[0] || defaultStats;
+    }
+
+    return successResponse(res, responseData);
   } catch (error) {
     next(error);
   }

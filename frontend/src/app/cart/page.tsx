@@ -7,6 +7,7 @@ import { useCartStore } from '@/store/cartStore';
 import { usePlaceOrder } from '@/hooks/useOrders';
 import { formatCurrency } from '@/lib/utils';
 import api from '@/lib/axios';
+import { useQuery } from '@tanstack/react-query';
 
 // Razorpay window type
 declare global {
@@ -27,10 +28,22 @@ const PAYMENT_OPTIONS = [
   { value: 'upi_at_restaurant', label: 'UPI at Restaurant', emoji: '📱', desc: 'Scan & pay on arrival' },
   { value: 'online', label: 'Pay Online', emoji: '💳', desc: 'Razorpay / Card / UPI' },
 ] as const;
+
 export default function CartPage() {
   const router = useRouter();
   const cart = useCartStore();
   const placeOrder = usePlaceOrder();
+  
+  // Fetch actual restaurant settings (e.g. gstRate)
+  const { data: restaurantData } = useQuery({
+    queryKey: ['restaurant-cart-info', cart.restaurantId],
+    queryFn: async () => {
+      if (!cart.restaurantId) return null;
+      return (await api.get(`/restaurants/${cart.restaurantId}`)).data.data.restaurant;
+    },
+    enabled: !!cart.restaurantId,
+  });
+
   const [couponInput, setCouponInput] = useState('');
   const [couponLoading, setCouponLoading] = useState(false);
   const [couponError, setCouponError] = useState('');
@@ -43,7 +56,7 @@ export default function CartPage() {
   const [paymentError, setPaymentError] = useState('');
 
   const subtotal = cart.getSubtotal();
-  const gstRate = 5; // estimated — actual rate applied by backend based on restaurant
+  const gstRate = restaurantData?.gstRate !== undefined ? restaurantData.gstRate : 5;
   const gstAmount = Math.round(((subtotal - cart.discount) * gstRate) / 100 * 100) / 100;
   const total = subtotal - cart.discount + gstAmount;
 
@@ -203,92 +216,94 @@ export default function CartPage() {
         </div>
       </div>
 
-      {/* ETA */}
-      <div className="bg-white rounded-xl border border-gray-100 p-4">
-        <div className="flex items-center gap-2 mb-1">
-          <Clock className="w-4 h-4 text-orange-500" />
-          <p className="font-bold text-gray-800 text-sm uppercase tracking-wider">Arrival Time</p>
-        </div>
-        <p className="text-[11px] text-gray-400 mb-4">Kitchen cooks based on your ETA</p>
+      {/* ETA (Hidden for Dine-in orders) */}
+      {cart.orderType !== 'dine-in' && (
+        <div className="bg-white rounded-xl border border-gray-100 p-4">
+          <div className="flex items-center gap-2 mb-1">
+            <Clock className="w-4 h-4 text-orange-500" />
+            <p className="font-bold text-gray-800 text-sm uppercase tracking-wider">Arrival Time</p>
+          </div>
+          <p className="text-[11px] text-gray-400 mb-4">Kitchen cooks based on your ETA</p>
 
-        <div className="grid grid-cols-2 gap-2.5">
-          {ETA_OPTIONS.map(({ label, value, desc, emoji, color }) => {
-            const isSelected = selectedEta === value;
-            return (
-              <button key={value}
-                onClick={() => {
-                  setSelectedEta(value);
-                  if (value !== -1) {
-                    const mins = value === 0 ? 1 : value;
-                    const eta = new Date(Date.now() + mins * 60 * 1000).toISOString();
-                    cart.setETA(value, eta);
-                    setCustomTime('');
-                  } else {
-                    // Custom time selected — clear previous ETA until user picks a time
-                    cart.setETA(null, null);
+          <div className="grid grid-cols-2 gap-2.5">
+            {ETA_OPTIONS.map(({ label, value, desc, emoji, color }) => {
+              const isSelected = selectedEta === value;
+              return (
+                <button key={value}
+                  onClick={() => {
+                    setSelectedEta(value);
+                    if (value !== -1) {
+                      const mins = value === 0 ? 1 : value;
+                      const eta = new Date(Date.now() + mins * 60 * 1000).toISOString();
+                      cart.setETA(value, eta);
+                      setCustomTime('');
+                    } else {
+                      // Custom time selected — clear previous ETA until user picks a time
+                      cart.setETA(null, null);
+                    }
+                  }}
+                  className={`relative flex flex-col items-start p-3.5 rounded-2xl border-2 transition-all text-left overflow-hidden ${
+                    isSelected
+                      ? 'border-orange-400 bg-orange-50 shadow-md shadow-orange-100'
+                      : 'border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50'
+                  }`}>
+                  {/* Selected indicator */}
+                  {isSelected && (
+                    <div className={`absolute top-0 right-0 w-6 h-6 bg-gradient-to-br ${color} rounded-bl-xl flex items-center justify-center`}>
+                      <div className="w-2 h-2 rounded-full bg-white" />
+                    </div>
+                  )}
+                  <span className="text-xl mb-2">{emoji}</span>
+                  <p className={`text-sm font-extrabold ${isSelected ? 'text-orange-600' : 'text-gray-800'}`}>{label}</p>
+                  <p className="text-[10px] text-gray-400 mt-0.5">{desc}</p>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Custom time picker */}
+          {selectedEta === -1 && (
+            <div className="mt-3 p-3 bg-emerald-50 border border-emerald-200 rounded-xl">
+              <p className="text-xs font-bold text-emerald-700 mb-2 flex items-center gap-1.5">
+                <Timer className="w-3.5 h-3.5" /> Set your arrival time
+              </p>
+              <input
+                type="time"
+                value={customTime}
+                onChange={e => {
+                  setCustomTime(e.target.value);
+                  if (e.target.value) {
+                    const [h, m] = e.target.value.split(':').map(Number);
+                    const now = new Date();
+                    const eta = new Date(now.getFullYear(), now.getMonth(), now.getDate(), h, m);
+                    if (eta < now) eta.setDate(eta.getDate() + 1);
+                    const diffMins = Math.round((eta.getTime() - now.getTime()) / 60000);
+                    cart.setETA(diffMins, eta.toISOString());
                   }
                 }}
-                className={`relative flex flex-col items-start p-3.5 rounded-2xl border-2 transition-all text-left overflow-hidden ${
-                  isSelected
-                    ? 'border-orange-400 bg-orange-50 shadow-md shadow-orange-100'
-                    : 'border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50'
-                }`}>
-                {/* Selected indicator */}
-                {isSelected && (
-                  <div className={`absolute top-0 right-0 w-6 h-6 bg-gradient-to-br ${color} rounded-bl-xl flex items-center justify-center`}>
-                    <div className="w-2 h-2 rounded-full bg-white" />
-                  </div>
-                )}
-                <span className="text-xl mb-2">{emoji}</span>
-                <p className={`text-sm font-extrabold ${isSelected ? 'text-orange-600' : 'text-gray-800'}`}>{label}</p>
-                <p className="text-[10px] text-gray-400 mt-0.5">{desc}</p>
-              </button>
-            );
-          })}
-        </div>
+                className="w-full h-11 px-4 border-2 border-emerald-300 rounded-xl text-sm font-bold text-gray-800 outline-none focus:border-emerald-500 bg-white transition-colors"
+              />
+              {customTime && (cart.etaMinutes ?? 0) > 0 && (
+                <p className="text-[11px] text-emerald-600 font-semibold mt-1.5">
+                  ✓ Arriving in ~{cart.etaMinutes} min
+                </p>
+              )}
+            </div>
+          )}
 
-        {/* Custom time picker */}
-        {selectedEta === -1 && (
-          <div className="mt-3 p-3 bg-emerald-50 border border-emerald-200 rounded-xl">
-            <p className="text-xs font-bold text-emerald-700 mb-2 flex items-center gap-1.5">
-              <Timer className="w-3.5 h-3.5" /> Set your arrival time
-            </p>
-            <input
-              type="time"
-              value={customTime}
-              onChange={e => {
-                setCustomTime(e.target.value);
-                if (e.target.value) {
-                  const [h, m] = e.target.value.split(':').map(Number);
-                  const now = new Date();
-                  const eta = new Date(now.getFullYear(), now.getMonth(), now.getDate(), h, m);
-                  if (eta < now) eta.setDate(eta.getDate() + 1);
-                  const diffMins = Math.round((eta.getTime() - now.getTime()) / 60000);
-                  cart.setETA(diffMins, eta.toISOString());
-                }
-              }}
-              className="w-full h-11 px-4 border-2 border-emerald-300 rounded-xl text-sm font-bold text-gray-800 outline-none focus:border-emerald-500 bg-white transition-colors"
-            />
-            {customTime && (cart.etaMinutes ?? 0) > 0 && (
-              <p className="text-[11px] text-emerald-600 font-semibold mt-1.5">
-                ✓ Arriving in ~{cart.etaMinutes} min
+          {/* Selected ETA summary */}
+          {cart.customerETA && selectedEta !== -1 && (
+            <div className="mt-3 flex items-center gap-2 bg-orange-50 border border-orange-200 rounded-xl px-3 py-2">
+              <Zap className="w-3.5 h-3.5 text-orange-500 flex-shrink-0" />
+              <p className="text-xs font-bold text-orange-700">
+                {selectedEta === 0
+                  ? 'Order will be ready immediately'
+                  : `Arriving at ${new Date(cart.customerETA).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}`}
               </p>
-            )}
-          </div>
-        )}
-
-        {/* Selected ETA summary */}
-        {cart.customerETA && selectedEta !== -1 && (
-          <div className="mt-3 flex items-center gap-2 bg-orange-50 border border-orange-200 rounded-xl px-3 py-2">
-            <Zap className="w-3.5 h-3.5 text-orange-500 flex-shrink-0" />
-            <p className="text-xs font-bold text-orange-700">
-              {selectedEta === 0
-                ? 'Order will be ready immediately'
-                : `Arriving at ${new Date(cart.customerETA).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}`
-              }
-            </p>
-          </div>
-        )}
+            </div>
+          )}
+        </div>
+      )}
       </div>
 
       {/* Coupon */}

@@ -4,13 +4,14 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
   LayoutDashboard, Store, ShoppingBag, Users,
-  Tag, MapPin, FileText, LogOut, Menu, X, Shield, Bell, Loader2, QrCode
+  Tag, MapPin, FileText, LogOut, Menu, X, Shield, Bell, Loader2, QrCode, Banknote
 } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { cn } from '@/lib/utils';
 
 const NAV = [
   { href: '/admin/dashboard',    icon: LayoutDashboard, label: 'Dashboard'   },
+  { href: '/admin/revenue',      icon: Banknote,        label: 'Revenue'     },
   { href: '/admin/restaurants',  icon: Store,           label: 'Restaurants' },
   { href: '/admin/orders',       icon: ShoppingBag,     label: 'Orders'      },
   { href: '/admin/users',        icon: Users,           label: 'Users'       },

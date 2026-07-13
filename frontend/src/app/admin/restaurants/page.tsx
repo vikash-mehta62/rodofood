@@ -3,7 +3,8 @@ import { useEffect, useState } from 'react';
 import {
   Search, ToggleLeft, ToggleRight, Loader2, MapPin, Star,
   Phone, CheckCircle, XCircle, Store, X, Mail, Clock,
-  Utensils, ChevronRight, Eye, Users, ShoppingBag, Plus, Save
+  Utensils, ChevronRight, Eye, Users, ShoppingBag, Plus, Save,
+  Trash2
 } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/axios';
@@ -466,9 +467,16 @@ export default function AdminRestaurantsPage() {
 
   const addRestaurantMut = useMutation({
     mutationFn: (payload: any) => api.post('/restaurants', payload),
-    onSuccess: () => {
+    onSuccess: (_, vars) => {
       qc.invalidateQueries({ queryKey: ['admin-restaurants'] });
       setShowAddModal(false);
+      if (vars.routes && vars.routes.length > 0) {
+        if (window.confirm('Restaurant successfully added! Do you want to view a demo of the route it was added to?')) {
+          // Find the first route the restaurant was added to and redirect to its QR demo if possible
+          // For now, we'll just go to the QRs page so they can pick the route's QR
+          window.location.href = '/admin/qrs';
+        }
+      }
     },
   });
 
@@ -626,6 +634,16 @@ export default function AdminRestaurantsPage() {
                     {r.isActive
                       ? <ToggleRight className="w-8 h-8 text-green-500" />
                       : <ToggleLeft className="w-8 h-8 text-slate-300" />}
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if(window.confirm('Are you sure you want to delete this restaurant? This cannot be undone.')){
+                         api.delete(`/restaurants/${r._id}`).then(() => qc.invalidateQueries({ queryKey: ['admin-restaurants'] }));
+                      }
+                    }}
+                    className="flex items-center justify-center w-8 h-8 rounded-xl bg-red-50 text-red-600 border border-red-200 hover:bg-red-100 transition-all ml-1">
+                    <Trash2 className="w-4 h-4" />
                   </button>
                 </div>
               </div>

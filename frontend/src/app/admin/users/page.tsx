@@ -27,6 +27,11 @@ export default function AdminUsersPage() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['admin-users'] }),
   });
 
+  const makeAdminMut = useMutation({
+    mutationFn: (id: string) => api.patch(`/admin/users/${id}/make-admin`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin-users'] }),
+  });
+
   const users = data?.data || [];
 
   return (
@@ -93,14 +98,29 @@ export default function AdminUsersPage() {
                       </div>
                     </div>
 
-                    {/* Toggle */}
-                    <button onClick={() => toggleMut.mutate(user._id)}
-                      disabled={toggleMut.isPending}
-                      className="flex-shrink-0 transition-transform active:scale-90">
-                      {user.isActive
-                        ? <ToggleRight className="w-8 h-8 text-green-500" />
-                        : <ToggleLeft className="w-8 h-8 text-slate-300" />}
-                    </button>
+                    {/* Actions */}
+                    <div className="flex items-center gap-2">
+                      {user.role !== 'admin' && (
+                        <button onClick={() => {
+                          if (window.confirm(`Are you sure you want to promote ${user.name || user.phone} to Admin?`)) {
+                            makeAdminMut.mutate(user._id);
+                          }
+                        }}
+                          disabled={makeAdminMut.isPending}
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black bg-purple-50 text-purple-700 border border-purple-200 hover:bg-purple-100 transition-colors">
+                          <Shield className="w-3.5 h-3.5" /> Make Admin
+                        </button>
+                      )}
+                      
+                      {/* Toggle */}
+                      <button onClick={() => toggleMut.mutate(user._id)}
+                        disabled={toggleMut.isPending}
+                        className="flex-shrink-0 transition-transform active:scale-90 ml-2">
+                        {user.isActive
+                          ? <ToggleRight className="w-8 h-8 text-green-500" />
+                          : <ToggleLeft className="w-8 h-8 text-slate-300" />}
+                      </button>
+                    </div>
                   </div>
                 );
               })}

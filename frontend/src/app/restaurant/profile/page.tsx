@@ -16,6 +16,8 @@ interface RForm {
   avgPrepTimeMinutes: string;
   'openingHours.open': string; 'openingHours.close': string;
   coverFile: File|null; coverPreview: string;
+  allowPayAtStore: boolean;
+  requireBookingAmountForPayAtStore: boolean;
 }
 
 export default function RestaurantProfilePage() {
@@ -30,6 +32,8 @@ export default function RestaurantProfilePage() {
     avgPrepTimeMinutes:'20',
     'openingHours.open':'08:00', 'openingHours.close':'22:00',
     coverFile:null, coverPreview:'',
+    allowPayAtStore: true,
+    requireBookingAmountForPayAtStore: false,
   });
   const [saved, setSaved] = useState(false);
 
@@ -65,6 +69,8 @@ export default function RestaurantProfilePage() {
       'openingHours.open': restaurant.openingHours?.open || '08:00',
       'openingHours.close': restaurant.openingHours?.close || '22:00',
       coverPreview: restaurant.coverImage ? (restaurant.coverImage.startsWith('http') ? restaurant.coverImage : `${BASE_URL}${restaurant.coverImage}`) : '',
+      allowPayAtStore: restaurant.allowPayAtStore ?? true,
+      requireBookingAmountForPayAtStore: restaurant.requireBookingAmountForPayAtStore ?? false,
     }));
   }, [restaurant]);
 
@@ -252,6 +258,37 @@ export default function RestaurantProfilePage() {
                 className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl text-sm font-medium outline-none focus:border-orange-400 transition-colors" />
             </div>
           </div>
+        </div>
+
+        {/* Payment Settings */}
+        <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm space-y-4">
+          <h2 className="font-black text-slate-900 text-sm uppercase tracking-wider flex items-center gap-2">
+            💳 Payment Settings
+          </h2>
+          
+          <div className="flex items-center justify-between p-3 border-2 border-slate-100 rounded-xl">
+            <div>
+              <p className="font-bold text-sm text-slate-800">Allow "Pay at Store"</p>
+              <p className="text-xs text-slate-400 font-medium">Customers can place orders without paying online</p>
+            </div>
+            <button type="button" onClick={() => setForm(f => ({ ...f, allowPayAtStore: !f.allowPayAtStore }))}
+              className={`w-12 h-6 rounded-full transition-colors relative ${form.allowPayAtStore ? 'bg-green-500' : 'bg-slate-200'}`}>
+              <div className={`w-5 h-5 bg-white rounded-full absolute top-0.5 transition-all ${form.allowPayAtStore ? 'left-6' : 'left-0.5'}`} />
+            </button>
+          </div>
+
+          {form.allowPayAtStore && (
+            <div className="flex items-center justify-between p-3 border-2 border-slate-100 rounded-xl bg-orange-50/50">
+              <div>
+                <p className="font-bold text-sm text-slate-800">Require 30% Booking Amount</p>
+                <p className="text-xs text-slate-400 font-medium">Customers must pay 30% online when choosing "Pay at Store"</p>
+              </div>
+              <button type="button" onClick={() => setForm(f => ({ ...f, requireBookingAmountForPayAtStore: !f.requireBookingAmountForPayAtStore }))}
+                className={`w-12 h-6 rounded-full transition-colors relative ${form.requireBookingAmountForPayAtStore ? 'bg-orange-500' : 'bg-slate-200'}`}>
+                <div className={`w-5 h-5 bg-white rounded-full absolute top-0.5 transition-all ${form.requireBookingAmountForPayAtStore ? 'left-6' : 'left-0.5'}`} />
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Save */}

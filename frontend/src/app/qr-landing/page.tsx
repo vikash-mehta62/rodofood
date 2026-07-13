@@ -51,13 +51,13 @@ function QRLandingContent() {
     queryKey: ['qr-landing-restaurants-list', routeId],
     queryFn: async () => {
       if (!routeId) return null;
-      return (await api.get('/restaurants', { params: { limit: 100 } })).data;
+      return (await api.get('/restaurants/by-route', { params: { routeId, limit: 100 } })).data;
     },
     enabled: !!routeId,
   });
 
   const timelineStops = qr?.stops || [];
-  const allRestaurants = restaurantsResponse?.data || [];
+  const allRestaurants = restaurantsResponse?.data?.restaurants || restaurantsResponse?.data || [];
   const isLoading = isQrLoading || isRestaurantsLoading;
 
   return (

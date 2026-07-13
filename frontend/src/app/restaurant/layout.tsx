@@ -5,7 +5,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   LayoutDashboard, UtensilsCrossed, ShoppingBag,
-  ToggleLeft, ToggleRight, LogOut, Menu, X, ChefHat, Tag
+  ToggleLeft, ToggleRight, LogOut, Menu, X, ChefHat, Tag, Banknote
 } from 'lucide-react';
 import api from '@/lib/axios';
 import { useAuthStore } from '@/store/authStore';
@@ -13,6 +13,7 @@ import { cn } from '@/lib/utils';
 
 const NAV = [
   { href: '/restaurant/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
+  { href: '/restaurant/revenue',   icon: Banknote,        label: 'Revenue'   },
   { href: '/restaurant/menu',      icon: UtensilsCrossed,  label: 'Menu'      },
   { href: '/restaurant/orders',    icon: ShoppingBag,      label: 'Orders'    },
   { href: '/restaurant/coupons',   icon: Tag,              label: 'Coupons'   },

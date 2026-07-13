@@ -132,16 +132,34 @@ exports.getRestaurantRevenue = async (req, res, next) => {
       const monthAgo = new Date(today);
       monthAgo.setMonth(monthAgo.getMonth() - 1);
       matchStage.createdAt = { $gte: monthAgo };
+    } else if (timeframe === 'custom' && req.query.startDate && req.query.endDate) {
+      const start = new Date(req.query.startDate);
+      const end = new Date(req.query.endDate);
+      end.setHours(23, 59, 59, 999);
+      matchStage.createdAt = { $gte: start, $lte: end };
     }
 
     const data = await Order.aggregate([
       { $match: matchStage },
-      { $group: { _id: '$restaurant', revenue: { $sum: '$totalAmount' }, orders: { $sum: 1 } } },
+      { $group: { 
+          _id: '$restaurant', 
+          revenue: { $sum: '$totalAmount' }, 
+          subtotal: { $sum: '$subtotal' }, 
+          gstAmount: { $sum: '$gstAmount' }, 
+          platformFee: { $sum: '$platformFee' }, 
+          discount: { $sum: '$discount' }, 
+          orders: { $sum: 1 } 
+        } 
+      },
       { $lookup: { from: 'restaurants', localField: '_id', foreignField: '_id', as: 'restaurantInfo' } },
       { $unwind: '$restaurantInfo' },
       { $project: {
           _id: 1,
           revenue: 1,
+          subtotal: 1,
+          gstAmount: 1,
+          platformFee: 1,
+          discount: 1,
           orders: 1,
           restaurantName: '$restaurantInfo.name'
         }

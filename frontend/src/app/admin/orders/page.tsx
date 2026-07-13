@@ -1,6 +1,6 @@
 'use client';
 import { useState } from 'react';
-import { Loader2, ShoppingBag, Search, Clock, Phone } from 'lucide-react';
+import { Loader2, ShoppingBag, Search, Clock, Phone, Eye, X, MapPin } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import api from '@/lib/axios';
 import { formatCurrency } from '@/lib/utils';
@@ -21,6 +21,7 @@ const FILTERS = ['All','pending','confirmed','preparing','ready','completed','ca
 export default function AdminOrdersPage() {
   const [status, setStatus] = useState('');
   const [search, setSearch] = useState('');
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ['admin-orders', status],
@@ -90,6 +91,9 @@ export default function AdminOrdersPage() {
                         <p className="font-black text-slate-900 text-sm">{formatCurrency(order.totalAmount)}</p>
                       </div>
                     </div>
+                    <button onClick={() => setSelectedOrder(order)} className="ml-4 flex items-center justify-center w-8 h-8 rounded-xl bg-orange-50 text-orange-600 hover:bg-orange-100 transition-colors">
+                      <Eye className="w-4 h-4" />
+                    </button>
                   </div>
                 </div>
               );
@@ -100,6 +104,79 @@ export default function AdminOrdersPage() {
         <div className="text-center py-16 bg-white rounded-2xl border border-slate-100">
           <ShoppingBag className="w-12 h-12 text-slate-200 mx-auto mb-3" />
           <p className="font-black text-slate-400">No orders found</p>
+        </div>
+      )}
+
+      {/* Order Details Modal */}
+      {selectedOrder && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm" onClick={() => setSelectedOrder(null)}>
+          <div className="bg-white rounded-3xl w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-2xl" onClick={e => e.stopPropagation()}>
+            <div className="sticky top-0 bg-white/80 backdrop-blur-md px-6 py-4 border-b border-slate-100 flex items-center justify-between z-10">
+              <h2 className="text-lg font-black text-slate-900">Order #{selectedOrder.orderNumber}</h2>
+              <button onClick={() => setSelectedOrder(null)} className="w-8 h-8 flex items-center justify-center rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            
+            <div className="p-6 space-y-6">
+              {/* Order Info */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100">
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Status</p>
+                  <span className={`text-xs font-black px-2.5 py-1 rounded-full border ${STATUS_CFG[selectedOrder.status]?.color || STATUS_CFG.pending.color}`}>
+                    {STATUS_CFG[selectedOrder.status]?.label || 'Pending'}
+                  </span>
+                </div>
+                <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100">
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Type</p>
+                  <p className="font-black text-slate-800 text-sm capitalize">{selectedOrder.orderType?.replace('-', ' ')}</p>
+                </div>
+              </div>
+
+              {/* Items */}
+              <div>
+                <h3 className="font-black text-slate-900 text-sm mb-3">Order Items</h3>
+                <div className="space-y-3">
+                  {selectedOrder.items.map((item: any, idx: number) => (
+                    <div key={idx} className="flex justify-between items-start">
+                      <div className="flex gap-3">
+                        <div className={`w-4 h-4 mt-0.5 rounded flex items-center justify-center border ${item.menuItem?.isVeg !== false ? 'border-green-500' : 'border-red-500'}`}>
+                          <div className={`w-2 h-2 rounded-full ${item.menuItem?.isVeg !== false ? 'bg-green-500' : 'bg-red-500'}`} />
+                        </div>
+                        <div>
+                          <p className="font-bold text-slate-800 text-sm">{item.menuItem?.name || 'Unknown Item'}</p>
+                          <p className="text-xs text-slate-500 font-medium">Qty: {item.quantity} × {formatCurrency(item.price)}</p>
+                        </div>
+                      </div>
+                      <p className="font-black text-slate-900 text-sm">{formatCurrency(item.price * item.quantity)}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Summary */}
+              <div className="bg-orange-50/50 rounded-2xl p-5 border border-orange-100 space-y-2">
+                <div className="flex justify-between text-sm font-bold text-slate-600">
+                  <span>Subtotal</span>
+                  <span>{formatCurrency(selectedOrder.totalAmount - (selectedOrder.platformFee || 5))}</span>
+                </div>
+                <div className="flex justify-between text-sm font-bold text-slate-600">
+                  <span>Platform Fee</span>
+                  <span>{formatCurrency(selectedOrder.platformFee || 5)}</span>
+                </div>
+                {selectedOrder.discountAmount > 0 && (
+                  <div className="flex justify-between text-sm font-bold text-green-600">
+                    <span>Discount</span>
+                    <span>-{formatCurrency(selectedOrder.discountAmount)}</span>
+                  </div>
+                )}
+                <div className="pt-2 mt-2 border-t border-orange-200 flex justify-between text-base font-black text-slate-900">
+                  <span>Total Amount</span>
+                  <span>{formatCurrency(selectedOrder.totalAmount)}</span>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>
