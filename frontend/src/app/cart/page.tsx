@@ -304,7 +304,6 @@ export default function CartPage() {
           )}
         </div>
       )}
-      </div>
 
       {/* Coupon */}
       <div className="bg-white rounded-xl border border-gray-100 p-4">
