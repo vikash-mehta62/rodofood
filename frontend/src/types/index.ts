@@ -135,7 +135,9 @@ export interface Order {
   gstRate: number;
   discount: number;
   totalAmount: number;
+  platformFee?: number;
   couponCode?: string;
+  discountAmount?: number;
   orderType: 'dine-in' | 'takeaway';
   paymentMethod: PaymentMethod;
   customerETA: string;

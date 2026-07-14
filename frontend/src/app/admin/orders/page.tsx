@@ -164,10 +164,10 @@ export default function AdminOrdersPage() {
                   <span>Platform Fee</span>
                   <span>{formatCurrency(selectedOrder.platformFee || 5)}</span>
                 </div>
-                {selectedOrder.discountAmount > 0 && (
+                {(selectedOrder.discountAmount ?? 0) > 0 && (
                   <div className="flex justify-between text-sm font-bold text-green-600">
                     <span>Discount</span>
-                    <span>-{formatCurrency(selectedOrder.discountAmount)}</span>
+                    <span>-{formatCurrency(selectedOrder.discountAmount ?? 0)}</span>
                   </div>
                 )}
                 <div className="pt-2 mt-2 border-t border-orange-200 flex justify-between text-base font-black text-slate-900">
