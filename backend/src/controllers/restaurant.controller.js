@@ -160,6 +160,14 @@ const buildRestaurantPayload = async (body, existing = null) => {
     payload.gstRate = parseFloat(payload.gstRate);
   }
 
+  if (payload.allowPayAtStore !== undefined) {
+    payload.allowPayAtStore = String(payload.allowPayAtStore) === 'true';
+  }
+
+  if (payload.requireBookingAmountForPayAtStore !== undefined) {
+    payload.requireBookingAmountForPayAtStore = String(payload.requireBookingAmountForPayAtStore) === 'true';
+  }
+
   return payload;
 };
 

@@ -1,5 +1,5 @@
 'use client';
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Tag, Clock, Loader2, Plus, Minus, ChevronRight, ShieldCheck, Info, Zap, Timer } from 'lucide-react';
 import Link from 'next/link';
@@ -59,6 +59,15 @@ export default function CartPage() {
   const gstRate = restaurantData?.gstRate !== undefined ? restaurantData.gstRate : 5;
   const gstAmount = Math.round(((subtotal - cart.discount) * gstRate) / 100 * 100) / 100;
   const total = subtotal - cart.discount + gstAmount;
+
+  const allowPayAtStore = restaurantData?.allowPayAtStore ?? true;
+  const availablePaymentOptions = PAYMENT_OPTIONS.filter(opt => allowPayAtStore || opt.value === 'online');
+
+  useEffect(() => {
+    if (!allowPayAtStore && paymentMethod !== 'online') {
+      setPaymentMethod('online');
+    }
+  }, [allowPayAtStore, paymentMethod]);
 
   const handleApplyCoupon = async () => {
     if (!couponInput.trim()) return;
@@ -353,7 +362,7 @@ export default function CartPage() {
       <div className="bg-white rounded-xl border border-gray-100 p-4">
         <p className="font-semibold text-gray-700 text-xs uppercase tracking-wider mb-3">Payment Method</p>
         <div className="space-y-2">
-          {PAYMENT_OPTIONS.map(({ value, label, emoji, desc }) => (
+          {availablePaymentOptions.map(({ value, label, emoji, desc }) => (
             <button key={value} onClick={() => setPaymentMethod(value)}
               className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl border-2 transition-all text-left ${paymentMethod === value ? 'border-orange-400 bg-orange-50' : 'border-gray-200 bg-white hover:border-gray-300'}`}>
               <span className="text-lg flex-shrink-0">{emoji}</span>
