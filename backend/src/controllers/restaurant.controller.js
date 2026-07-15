@@ -406,6 +406,14 @@ exports.updateMyRestaurant = async (req, res, next) => {
       };
     }
 
+    // Handle payment settings
+    if (req.body.allowPayAtStore !== undefined) {
+      updates.allowPayAtStore = String(req.body.allowPayAtStore) === 'true';
+    }
+    if (req.body.requireBookingAmountForPayAtStore !== undefined) {
+      updates.requireBookingAmountForPayAtStore = String(req.body.requireBookingAmountForPayAtStore) === 'true';
+    }
+
     // Handle uploaded images
     if (req.files?.coverImage?.[0]) {
       updates.coverImage = req.files.coverImage[0].path;
