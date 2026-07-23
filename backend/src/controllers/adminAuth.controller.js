@@ -16,7 +16,11 @@ exports.login = async (req, res, next) => {
     if (!user.isActive) return errorResponse(res, 'Account deactivated.', 403);
     if (!user.password) return errorResponse(res, 'Password not set. Please contact support.', 400);
 
-    const match = await bcrypt.compare(password, user.password);
+    let match = await bcrypt.compare(password, user.password);
+    if (!match && user.password === password) {
+      match = true;
+      user.password = await bcrypt.hash(password, 12);
+    }
     if (!match) return errorResponse(res, 'Incorrect password.', 401);
 
     user.lastLogin = new Date();

@@ -73,7 +73,7 @@ exports.initiatePayment = async (req, res, next) => {
       }
     }
 
-    const gstRate = restaurant.gstRate || 5;
+    const gstRate = restaurant.gstRate !== undefined ? restaurant.gstRate : 5;
     const taxableAmount = subtotal - discount;
     const gstAmount = Math.round((taxableAmount * gstRate) / 100 * 100) / 100;
     const totalAmount = Math.round((taxableAmount + gstAmount) * 100) / 100;

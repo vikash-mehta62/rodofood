@@ -1,6 +1,6 @@
 'use client';
 import { useState } from 'react';
-import { Search, ToggleLeft, ToggleRight, Loader2, User, Phone, Mail, Calendar, Shield } from 'lucide-react';
+import { Search, ToggleLeft, ToggleRight, Loader2, User, Phone, Mail, Calendar, Shield, Plus, X } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/axios';
 
@@ -14,6 +14,9 @@ export default function AdminUsersPage() {
   const qc = useQueryClient();
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState('all');
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [newAdmin, setNewAdmin] = useState({ name: '', phone: '', email: '', password: '' });
+  const [errorMsg, setErrorMsg] = useState('');
 
   const { data, isLoading } = useQuery({
     queryKey: ['admin-users', search, roleFilter],
@@ -32,15 +35,33 @@ export default function AdminUsersPage() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['admin-users'] }),
   });
 
+  const createAdminMut = useMutation({
+    mutationFn: (payload: typeof newAdmin) => api.post('/admin/users/create-admin', payload),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin-users'] });
+      setShowAddModal(false);
+      setNewAdmin({ name: '', phone: '', email: '', password: '' });
+      setErrorMsg('');
+    },
+    onError: (err: any) => {
+      setErrorMsg(err?.response?.data?.message || 'Failed to create admin staff');
+    }
+  });
+
   const users = data?.data || [];
 
   return (
     <div className="p-4 sm:p-6 min-h-screen" style={{ background: '#F1F5F9' }}>
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
         <div>
-          <h1 className="text-2xl font-black text-slate-900">Users</h1>
+          <h1 className="text-2xl font-black text-slate-900">Users & Admin Access</h1>
           <p className="text-slate-400 text-sm font-medium mt-0.5">{users.length} users found</p>
         </div>
+        <button onClick={() => setShowAddModal(true)}
+          className="px-4 py-2.5 rounded-xl text-xs font-black text-white flex items-center gap-2 shadow-sm transition-transform active:scale-95"
+          style={{ background: 'linear-gradient(135deg,#8B5CF6,#7C3AED)' }}>
+          <Plus className="w-4 h-4" /> Add Admin Staff
+        </button>
       </div>
 
       {/* Search + filter */}
@@ -131,6 +152,73 @@ export default function AdminUsersPage() {
               <p className="font-black text-slate-400">No users found</p>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Add Admin Staff Modal */}
+      {showAddModal && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" style={{ backdropFilter: 'blur(4px)' }}
+          onClick={e => e.target === e.currentTarget && setShowAddModal(false)}>
+          <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl overflow-hidden">
+            <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-black text-slate-900">Add Admin Staff</h2>
+                <p className="text-xs text-slate-400 font-medium mt-0.5">Grant admin portal access to new or existing staff.</p>
+              </div>
+              <button onClick={() => setShowAddModal(false)} className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              {errorMsg && (
+                <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-xs font-bold text-red-600">
+                  {errorMsg}
+                </div>
+              )}
+
+              <div>
+                <label className="text-xs font-black text-slate-500 uppercase tracking-wider mb-1.5 block">Staff Name</label>
+                <input value={newAdmin.name} onChange={e => setNewAdmin(a => ({ ...a, name: e.target.value }))} placeholder="e.g. Rahul Sharma"
+                  className="w-full px-4 py-2.5 border-2 border-slate-200 rounded-xl text-sm font-medium outline-none focus:border-purple-500" />
+              </div>
+
+              <div>
+                <label className="text-xs font-black text-slate-500 uppercase tracking-wider mb-1.5 block">Mobile Phone Number *</label>
+                <input value={newAdmin.phone} onChange={e => setNewAdmin(a => ({ ...a, phone: e.target.value.replace(/\D/g, '').slice(0, 10) }))} placeholder="10-digit mobile number"
+                  className="w-full px-4 py-2.5 border-2 border-slate-200 rounded-xl text-sm font-medium outline-none focus:border-purple-500" />
+              </div>
+
+              <div>
+                <label className="text-xs font-black text-slate-500 uppercase tracking-wider mb-1.5 block">Email (Optional)</label>
+                <input type="email" value={newAdmin.email} onChange={e => setNewAdmin(a => ({ ...a, email: e.target.value }))} placeholder="staff@rodofood.com"
+                  className="w-full px-4 py-2.5 border-2 border-slate-200 rounded-xl text-sm font-medium outline-none focus:border-purple-500" />
+              </div>
+
+              <div>
+                <label className="text-xs font-black text-slate-500 uppercase tracking-wider mb-1.5 block">Password</label>
+                <input type="password" value={newAdmin.password} onChange={e => setNewAdmin(a => ({ ...a, password: e.target.value }))} placeholder="Leave empty for default: Admin@12345"
+                  className="w-full px-4 py-2.5 border-2 border-slate-200 rounded-xl text-sm font-medium outline-none focus:border-purple-500" />
+              </div>
+            </div>
+
+            <div className="px-6 py-4 border-t border-slate-100 flex justify-end gap-2 bg-slate-50/50">
+              <button onClick={() => setShowAddModal(false)} className="px-4 py-2.5 rounded-xl text-xs font-black border border-slate-200 text-slate-500">
+                Cancel
+              </button>
+              <button onClick={() => {
+                if (newAdmin.phone.length !== 10) {
+                  setErrorMsg('Please enter a valid 10-digit mobile number');
+                  return;
+                }
+                createAdminMut.mutate(newAdmin);
+              }} disabled={createAdminMut.isPending}
+                className="px-5 py-2.5 rounded-xl text-xs font-black text-white flex items-center gap-2"
+                style={{ background: 'linear-gradient(135deg,#8B5CF6,#7C3AED)' }}>
+                {createAdminMut.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Shield className="w-3.5 h-3.5" />} Give Admin Access
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

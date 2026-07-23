@@ -1,3 +1,4 @@
+const bcrypt = require('bcryptjs');
 const User = require('../models/User');
 const Order = require('../models/Order');
 const Restaurant = require('../models/Restaurant');
@@ -178,8 +179,46 @@ exports.makeAdmin = async (req, res, next) => {
     const user = await User.findById(req.params.id);
     if (!user) return errorResponse(res, 'User not found', 404);
     user.role = 'admin';
+    if (!user.password && req.body?.password) {
+      user.password = await bcrypt.hash(req.body.password, 12);
+    } else if (!user.password) {
+      user.password = await bcrypt.hash('Admin@12345', 12);
+    }
     await user.save();
     return successResponse(res, { message: 'User role updated to admin', user });
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.createAdminUser = async (req, res, next) => {
+  try {
+    const { name, phone, email, password } = req.body;
+    if (!phone || phone.length !== 10) {
+      return errorResponse(res, 'Valid 10-digit mobile number is required', 400);
+    }
+    const rawPassword = password && password.trim() ? password.trim() : 'Admin@12345';
+    const hashedPassword = await bcrypt.hash(rawPassword, 12);
+
+    const existing = await User.findOne({ phone });
+    if (existing) {
+      existing.role = 'admin';
+      if (name) existing.name = name;
+      if (email) existing.email = email;
+      existing.password = hashedPassword;
+      await existing.save();
+      return successResponse(res, { user: existing }, 'User updated and assigned admin access');
+    }
+    const user = await User.create({
+      name,
+      phone,
+      email,
+      password: hashedPassword,
+      role: 'admin',
+      isPhoneVerified: true,
+      isActive: true,
+    });
+    return successResponse(res, { user }, 'New admin user created successfully', 201);
   } catch (error) {
     next(error);
   }

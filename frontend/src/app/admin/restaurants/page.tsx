@@ -31,6 +31,8 @@ type RestaurantForm = {
   longitude: string;
   foodType: 'veg' | 'non-veg' | 'both';
   avgPrepTimeMinutes: string;
+  gstRate: string;
+  allowPayAtStore: boolean;
   routes: string[];
 };
 
@@ -49,6 +51,8 @@ const emptyRestaurantForm = (): RestaurantForm => ({
   longitude: '',
   foodType: 'both',
   avgPrepTimeMinutes: '20',
+  gstRate: '5',
+  allowPayAtStore: true,
   routes: [],
 });
 
@@ -112,6 +116,8 @@ function AddRestaurantModal({
       },
       foodType: form.foodType,
       avgPrepTimeMinutes: Number(form.avgPrepTimeMinutes || 20),
+      gstRate: Number(form.gstRate || 0),
+      allowPayAtStore: form.allowPayAtStore,
       routes: form.routes,
       isOpen: true,
       isActive: true,
@@ -141,7 +147,16 @@ function AddRestaurantModal({
             <AdminField label="Restaurant Name *" value={form.name} onChange={v => set('name', v)} placeholder="Restaurant name" />
             <AdminField label="Restaurant Phone *" value={form.phone} onChange={v => set('phone', v.replace(/\D/g, '').slice(0, 10))} placeholder="9876543210" />
             <AdminField label="Email" value={form.email} onChange={v => set('email', v)} placeholder="restaurant@email.com" />
-            <AdminField label="Prep Time" value={form.avgPrepTimeMinutes} onChange={v => set('avgPrepTimeMinutes', v)} placeholder="20" type="number" />
+            <AdminField label="Prep Time (mins)" value={form.avgPrepTimeMinutes} onChange={v => set('avgPrepTimeMinutes', v)} placeholder="20" type="number" />
+            <AdminField label="GST Rate (%)" value={form.gstRate} onChange={v => set('gstRate', v)} placeholder="5 (or 0 for exempt)" type="number" />
+            <div className="flex flex-col justify-center">
+              <label className="text-xs font-black text-slate-500 uppercase tracking-wider mb-2 block">Pay At Store / COD</label>
+              <button type="button" onClick={() => setForm(f => ({ ...f, allowPayAtStore: !f.allowPayAtStore }))}
+                className={`px-4 py-2.5 rounded-xl border-2 text-xs font-black transition-all flex items-center justify-between ${form.allowPayAtStore ? 'border-green-500 bg-green-50 text-green-700' : 'border-slate-200 bg-slate-50 text-slate-400'}`}>
+                <span>{form.allowPayAtStore ? 'Allowed (Cash & UPI at Store)' : 'Disabled (Online Pre-payment Only)'}</span>
+                <span className={`w-3 h-3 rounded-full ${form.allowPayAtStore ? 'bg-green-500' : 'bg-slate-300'}`} />
+              </button>
+            </div>
           </div>
 
           <div>

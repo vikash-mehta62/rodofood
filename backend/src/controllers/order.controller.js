@@ -80,7 +80,7 @@ exports.createOrder = async (req, res, next) => {
     }
 
     const platformFee = 5; // Default platform fee
-    const gstRate = restaurant.gstRate || 0;
+    const gstRate = restaurant.gstRate !== undefined ? restaurant.gstRate : 5;
     const taxableAmount = subtotal - discount;
     const gstAmount = Math.round((taxableAmount * gstRate) / 100 * 100) / 100;
     const totalAmount = Math.round((taxableAmount + gstAmount + platformFee) * 100) / 100;

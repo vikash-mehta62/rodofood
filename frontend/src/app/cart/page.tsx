@@ -20,7 +20,6 @@ const ETA_OPTIONS = [
   { label: 'Immediately', value: 0,  desc: 'I\'m already here', emoji: '⚡', color: 'from-orange-500 to-red-500' },
   { label: '30 min',      value: 30, desc: 'Arriving soon',     emoji: '🚗', color: 'from-blue-500 to-blue-400' },
   { label: '45 min',      value: 45, desc: 'Standard',          emoji: '🛣️', color: 'from-violet-500 to-violet-400' },
-  { label: 'Custom Time', value: -1, desc: 'Set your own time', emoji: '🕐', color: 'from-emerald-500 to-emerald-400' },
 ];
 
 const PAYMENT_OPTIONS = [
